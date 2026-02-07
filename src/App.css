@@ -1,62 +1,64 @@
 /* ======================================================
-   THEME SYSTEM
-   - We set documentElement.dataset.theme = "dark" | "light"
-   - Variables below power the entire UI
+   THEME SYSTEM (Teal + Amber)
+   - Theme stored in localStorage and applied via:
+     document.documentElement.dataset.theme = "dark" | "light"
 ====================================================== */
 
 :root{
   --radius: 22px;
   --shadow: 0 18px 60px rgba(0,0,0,0.35);
   --shadowSoft: 0 12px 30px rgba(0,0,0,0.18);
-  --ring: 0 0 0 4px rgba(110,168,255,0.14);
-  --ring2: 0 0 0 6px rgba(110,168,255,0.16);
+  --ring: 0 0 0 4px rgba(45,212,191,0.16);
 }
 
-/* Default to dark if nothing set */
-html { scroll-behavior: smooth; }
+/* -------- DARK THEME (teal + amber) -------- */
 html[data-theme="dark"]{
   color-scheme: dark;
-  --bg:#070A12;
-  --text:#EAF0FF;
-  --muted:#A7B0C5;
 
-  --accent:#6EA8FF;
-  --accent2:#A78BFA;
+  --bg:#061015;
+  --text:#ECFEFF;
+  --muted:#94A3B8;
+
+  --accent:#2DD4BF;   /* teal */
+  --accent2:#F59E0B;  /* amber */
 
   --border: rgba(255,255,255,0.10);
-  --border2: rgba(110,168,255,0.22);
+  --border2: rgba(45,212,191,0.30);
 
-  --card: rgba(255,255,255,0.07);
-  --card2: rgba(255,255,255,0.035);
+  --card: rgba(255,255,255,0.065);
+  --card2: rgba(255,255,255,0.03);
 
-  --input: rgba(0,0,0,0.22);
-  --item: rgba(0,0,0,0.16);
+  --input: rgba(0,0,0,0.24);
+  --item: rgba(0,0,0,0.18);
 }
 
-/* Light theme */
+/* -------- LIGHT THEME (teal + amber) -------- */
 html[data-theme="light"]{
   color-scheme: light;
-  --bg:#F6F8FF;
-  --text:#0B1220;
+
+  --bg:#F7FBFF;
+  --text:#061015;
   --muted:#475569;
 
-  --accent:#2B6FFF;
-  --accent2:#7C3AED;
+  --accent:#0F766E;   /* deep teal */
+  --accent2:#B45309;  /* warm amber */
 
   --border: rgba(2,6,23,0.10);
-  --border2: rgba(43,111,255,0.24);
+  --border2: rgba(15,118,110,0.28);
 
-  --card: rgba(255,255,255,0.85);
-  --card2: rgba(255,255,255,0.72);
+  --card: rgba(255,255,255,0.88);
+  --card2: rgba(255,255,255,0.74);
 
-  --input: rgba(255,255,255,0.85);
-  --item: rgba(255,255,255,0.75);
+  --input: rgba(255,255,255,0.92);
+  --item: rgba(255,255,255,0.78);
 }
 
-/* Smooth theme transition */
+/* Smooth transitions */
 *{
-  transition: background-color 220ms ease, color 220ms ease, border-color 220ms ease, box-shadow 220ms ease, filter 220ms ease;
+  transition: background-color 220ms ease, color 220ms ease, border-color 220ms ease, box-shadow 220ms ease, filter 220ms ease, transform 160ms ease;
 }
+
+html { scroll-behavior: smooth; }
 
 .page{
   min-height: 100vh;
@@ -65,12 +67,11 @@ html[data-theme="light"]{
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   text-align: left;
 
-  /* New “aurora” themed background */
+  /* New background: teal/amber “glow” (different from your portfolio) */
   background:
-    radial-gradient(1200px 720px at 12% 6%, rgba(43,111,255,0.18), transparent 60%),
-    radial-gradient(1000px 620px at 85% 12%, rgba(124,58,237,0.16), transparent 62%),
-    radial-gradient(900px 560px at 70% 88%, rgba(34,197,94,0.10), transparent 60%),
-    radial-gradient(900px 520px at 22% 88%, rgba(59,130,246,0.10), transparent 60%),
+    radial-gradient(1200px 700px at 12% 8%, color-mix(in oklab, var(--accent) 22%, transparent), transparent 60%),
+    radial-gradient(1000px 600px at 88% 14%, color-mix(in oklab, var(--accent2) 18%, transparent), transparent 62%),
+    radial-gradient(900px 560px at 70% 92%, rgba(99,102,241,0.10), transparent 60%),
     var(--bg);
 }
 
@@ -83,7 +84,7 @@ a:hover{ opacity: 0.95; }
   top: 0;
   z-index: 50;
   backdrop-filter: blur(14px);
-  background: color-mix(in oklab, var(--bg) 72%, transparent);
+  background: color-mix(in oklab, var(--bg) 74%, transparent);
   border-bottom: 1px solid var(--border);
 }
 
@@ -108,7 +109,7 @@ a:hover{ opacity: 0.95; }
   height: 12px;
   border-radius: 999px;
   background: linear-gradient(90deg, var(--accent), var(--accent2));
-  box-shadow: 0 0 26px rgba(110,168,255,0.32);
+  box-shadow: 0 0 30px color-mix(in oklab, var(--accent) 35%, transparent);
 }
 
 .brandName{ font-weight: 900; letter-spacing: 0.2px; }
@@ -131,7 +132,6 @@ a:hover{ opacity: 0.95; }
   color: var(--text);
   cursor: pointer;
   box-shadow: var(--shadowSoft);
-  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
 }
 
 .chipBtn:hover{
@@ -141,7 +141,7 @@ a:hover{ opacity: 0.95; }
 }
 
 .chipBtn.ghost{
-  background: color-mix(in oklab, var(--card2) 75%, transparent);
+  background: color-mix(in oklab, var(--card2) 78%, transparent);
 }
 
 /* Layout spacing */
@@ -167,7 +167,11 @@ a:hover{ opacity: 0.95; }
   padding: 9px 12px;
   border-radius: 999px;
   border: 1px solid var(--border2);
-  background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 14%, transparent), transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--accent) 14%, transparent),
+    transparent
+  );
   box-shadow: 0 10px 30px rgba(0,0,0,0.18);
   font-size: 12px;
 }
@@ -245,6 +249,14 @@ a:hover{ opacity: 0.95; }
   box-shadow: var(--shadowSoft);
 }
 
+/* subtle inner glow so it feels “app-like” */
+html[data-theme="dark"] .card{
+  box-shadow: var(--shadowSoft), 0 0 0 1px rgba(45,212,191,0.06) inset;
+}
+html[data-theme="light"] .card{
+  box-shadow: var(--shadowSoft), 0 0 0 1px rgba(15,118,110,0.06) inset;
+}
+
 .cardHead{
   display:flex;
   align-items: baseline;
@@ -293,7 +305,6 @@ input:focus, select:focus, textarea:focus{
   grid-template-columns: 1fr 0.9fr;
   gap: 12px;
 }
-
 @media (max-width: 560px){
   .row{ grid-template-columns: 1fr; }
 }
@@ -304,7 +315,6 @@ input:focus, select:focus, textarea:focus{
   border-radius: 14px;
   border: 1px solid var(--border);
   background: color-mix(in oklab, var(--card) 70%, transparent);
-  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
   box-shadow: var(--shadowSoft);
   color: var(--text);
   cursor: pointer;
@@ -321,7 +331,7 @@ input:focus, select:focus, textarea:focus{
   background: linear-gradient(
     180deg,
     color-mix(in oklab, var(--accent) 16%, transparent),
-    color-mix(in oklab, var(--card2) 80%, transparent)
+    color-mix(in oklab, var(--card2) 82%, transparent)
   );
 }
 
@@ -334,7 +344,6 @@ input:focus, select:focus, textarea:focus{
   border-radius: 999px;
   color: var(--text);
   cursor: pointer;
-  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
   box-shadow: var(--shadowSoft);
 }
 
@@ -344,12 +353,12 @@ input:focus, select:focus, textarea:focus{
 }
 
 .smallBtn.ghost{
-  background: color-mix(in oklab, var(--card2) 75%, transparent);
+  background: color-mix(in oklab, var(--card2) 78%, transparent);
 }
 
 .smallBtn.danger{
   border-color: rgba(239,68,68,0.28);
-  background: rgba(239,68,68,0.10);
+  background: rgba(239,68,68,0.12);
 }
 
 /* Filters */
@@ -361,9 +370,7 @@ input:focus, select:focus, textarea:focus{
   justify-content: flex-end;
 }
 
-.search{
-  min-width: 230px;
-}
+.search{ min-width: 230px; }
 
 /* List */
 .list{
@@ -378,7 +385,6 @@ input:focus, select:focus, textarea:focus{
   background: var(--item);
   border-radius: 18px;
   padding: 16px;
-  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
   box-shadow: var(--shadowSoft);
 }
 
@@ -420,7 +426,7 @@ input:focus, select:focus, textarea:focus{
   font-size: 12px;
 }
 
-/* Badges */
+/* Badges (kept readable in both themes) */
 .badge{
   font-size: 12px;
   border: 1px solid var(--border);
@@ -432,18 +438,18 @@ input:focus, select:focus, textarea:focus{
 
 .badge.ok{
   border-color: rgba(34,197,94,0.25);
-  background: rgba(34,197,94,0.10);
-  color: color-mix(in oklab, rgb(20 83 45) 0%, var(--text) 85%);
+  background: rgba(34,197,94,0.12);
+  color: color-mix(in oklab, rgb(20 83 45) 0%, var(--text) 86%);
 }
 .badge.warn{
-  border-color: rgba(245,158,11,0.28);
-  background: rgba(245,158,11,0.12);
-  color: color-mix(in oklab, rgb(146 64 14) 0%, var(--text) 85%);
+  border-color: rgba(245,158,11,0.30);
+  background: rgba(245,158,11,0.14);
+  color: color-mix(in oklab, rgb(146 64 14) 0%, var(--text) 86%);
 }
 .badge.bad{
-  border-color: rgba(239,68,68,0.28);
-  background: rgba(239,68,68,0.12);
-  color: color-mix(in oklab, rgb(127 29 29) 0%, var(--text) 85%);
+  border-color: rgba(239,68,68,0.30);
+  background: rgba(239,68,68,0.14);
+  color: color-mix(in oklab, rgb(127 29 29) 0%, var(--text) 86%);
 }
 .badge.muted{
   border-color: var(--border);
@@ -456,10 +462,7 @@ input:focus, select:focus, textarea:focus{
   min-width: 120px;
 }
 
-.amtMain{
-  font-weight: 950;
-}
-
+.amtMain{ font-weight: 950; }
 .amtSub{
   margin-top: 3px;
   color: var(--muted);
@@ -475,19 +478,9 @@ input:focus, select:focus, textarea:focus{
   flex-wrap: wrap;
 }
 
-.dueLine{
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.dueDate{
-  color: var(--text);
-  font-weight: 800;
-}
-
-.note{
-  color: color-mix(in oklab, var(--muted) 90%, transparent);
-}
+.dueLine{ color: var(--muted); font-size: 12px; }
+.dueDate{ color: var(--text); font-weight: 800; }
+.note{ color: color-mix(in oklab, var(--muted) 92%, transparent); }
 
 .actions{
   display:flex;
@@ -497,31 +490,14 @@ input:focus, select:focus, textarea:focus{
 }
 
 /* Empty */
-.empty{
-  padding: 18px 6px 8px;
-}
+.empty{ padding: 18px 6px 8px; }
+.emptyTitle{ font-weight: 950; }
+.emptyText{ margin-top: 6px; color: var(--muted); line-height: 1.7; }
 
-.emptyTitle{
-  font-weight: 950;
-}
+/* About + Footer */
+.aboutCard{ margin-top: 16px; }
+.aboutText{ margin: 0; color: var(--muted); line-height: 1.75; }
 
-.emptyText{
-  margin-top: 6px;
-  color: var(--muted);
-  line-height: 1.7;
-}
-
-/* About */
-.aboutCard{
-  margin-top: 16px;
-}
-.aboutText{
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.75;
-}
-
-/* Footer */
 .footer{
   margin-top: 18px;
   text-align:center;
