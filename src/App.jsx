@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 
-/** ---------- Helpers (no extra files needed) ---------- **/
+/** ---------- Helpers ---------- **/
 const STORAGE_KEY = "subtrack:v1";
+const THEME_KEY = "subtrack:theme";
 
 function safeParse(json, fallback) {
   try {
@@ -22,13 +23,11 @@ function pad2(n) {
   return String(n).padStart(2, "0");
 }
 
-// Format as YYYY-MM-DD (local)
 function toYMD(date) {
   const d = new Date(date);
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
-// Parse YYYY-MM-DD as local date
 function fromYMD(ymd) {
   const [y, m, d] = ymd.split("-").map(Number);
   return new Date(y, (m || 1) - 1, d || 1);
@@ -49,11 +48,8 @@ function daysInMonth(year, monthIndex) {
 function addMonthsClamped(date, monthsToAdd) {
   const d = new Date(date);
   const day = d.getDate();
-
-  // Move to 1st to avoid overflow then clamp day
   d.setDate(1);
   d.setMonth(d.getMonth() + monthsToAdd);
-
   const dim = daysInMonth(d.getFullYear(), d.getMonth());
   d.setDate(Math.min(day, dim));
   return d;
@@ -61,21 +57,14 @@ function addMonthsClamped(date, monthsToAdd) {
 
 function nextDueYMD(currentYMD, cycle) {
   const current = fromYMD(currentYMD);
-
   let next;
   if (cycle === "weekly") {
     next = new Date(current);
     next.setDate(next.getDate() + 7);
-  } else if (cycle === "monthly") {
-    next = addMonthsClamped(current, 1);
-  } else if (cycle === "quarterly") {
-    next = addMonthsClamped(current, 3);
-  } else if (cycle === "yearly") {
-    next = addMonthsClamped(current, 12);
-  } else {
-    next = addMonthsClamped(current, 1);
-  }
-
+  } else if (cycle === "monthly") next = addMonthsClamped(current, 1);
+  else if (cycle === "quarterly") next = addMonthsClamped(current, 3);
+  else if (cycle === "yearly") next = addMonthsClamped(current, 12);
+  else next = addMonthsClamped(current, 1);
   return toYMD(next);
 }
 
@@ -125,12 +114,10 @@ function cycleToRRule(cycle) {
   return "FREQ=MONTHLY;INTERVAL=1";
 }
 
-// DTSTART as local “floating time” 09:00 to make it practical
 function makeICS(sub) {
   const dt = fromYMD(sub.nextDue);
   const dtstamp = new Date();
-  const dtStart =
-    `${dt.getFullYear()}${pad2(dt.getMonth() + 1)}${pad2(dt.getDate())}T090000`;
+  const dtStart = `${dt.getFullYear()}${pad2(dt.getMonth() + 1)}${pad2(dt.getDate())}T090000`;
   const dtStamp =
     `${dtstamp.getUTCFullYear()}${pad2(dtstamp.getUTCMonth() + 1)}${pad2(dtstamp.getUTCDate())}T${pad2(dtstamp.getUTCHours())}${pad2(dtstamp.getUTCMinutes())}${pad2(dtstamp.getUTCSeconds())}Z`;
 
@@ -140,7 +127,6 @@ function makeICS(sub) {
     `${sub.name}\nAmount: ${sub.currency}${Number(sub.amount || 0).toFixed(2)}\nCycle: ${sub.cycle}\nCategory: ${sub.category || "—"}\n\nCreated with SubTrack`
   );
 
-  // Alarm: 1 day before at 09:00
   const ics = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
@@ -178,15 +164,13 @@ function toCSV(subs) {
 
   const rows = [
     headers.join(","),
-    ...subs.map((s) =>
-      headers.map((h) => escape(s[h])).join(",")
-    ),
+    ...subs.map((s) => headers.map((h) => escape(s[h])).join(",")),
   ];
 
   return rows.join("\n");
 }
 
-/** ---------- UI ---------- **/
+/** ---------- UI constants ---------- **/
 const CATEGORY_OPTIONS = [
   "Streaming",
   "Music",
@@ -216,7 +200,22 @@ function badgeForDue(days) {
   return { text: `Due in ${days}d`, tone: "muted" };
 }
 
+function getInitialTheme() {
+  const saved = localStorage.getItem(THEME_KEY);
+  if (saved === "light" || saved === "dark") return saved;
+
+  // Default to OS preference if nothing saved
+  const prefersDark =
+    typeof window !== "undefined" &&
+    window.matchMedia &&
+    window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+  return prefersDark ? "dark" : "light";
+}
+
 export default function App() {
+  const [theme, setTheme] = useState(getInitialTheme);
+
   const [subs, setSubs] = useState(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
     return safeParse(raw, []);
@@ -238,6 +237,11 @@ export default function App() {
   const [editingId, setEditingId] = useState(null);
 
   useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem(THEME_KEY, theme);
+  }, [theme]);
+
+  useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(subs));
   }, [subs]);
 
@@ -254,10 +258,7 @@ export default function App() {
         const matchesCat = filterCat === "All" || s.category === filterCat;
         return matchesQuery && matchesCat;
       })
-      .sort((a, b) => {
-        // sort by nextDue ascending
-        return fromYMD(a.nextDue).getTime() - fromYMD(b.nextDue).getTime();
-      });
+      .sort((a, b) => fromYMD(a.nextDue).getTime() - fromYMD(b.nextDue).getTime());
   }, [subs, query, filterCat]);
 
   const totals = useMemo(() => {
@@ -302,14 +303,11 @@ export default function App() {
       nextDue: form.nextDue,
       category: form.category,
       notes: form.notes?.trim() ?? "",
-      createdAt: editingId ? undefined : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
     setSubs((prev) => {
-      if (editingId) {
-        return prev.map((s) => (s.id === editingId ? { ...s, ...payload } : s));
-      }
+      if (editingId) return prev.map((s) => (s.id === editingId ? { ...s, ...payload } : s));
       return [payload, ...prev];
     });
 
@@ -337,7 +335,11 @@ export default function App() {
 
   function onMarkPaid(sub) {
     const next = nextDueYMD(sub.nextDue, sub.cycle);
-    setSubs((prev) => prev.map((s) => (s.id === sub.id ? { ...s, nextDue: next, updatedAt: new Date().toISOString() } : s)));
+    setSubs((prev) =>
+      prev.map((s) =>
+        s.id === sub.id ? { ...s, nextDue: next, updatedAt: new Date().toISOString() } : s
+      )
+    );
   }
 
   function exportCSV() {
@@ -347,7 +349,9 @@ export default function App() {
 
   function downloadICS(sub) {
     const ics = makeICS(sub);
-    const safeName = sub.name.replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-").toLowerCase() || "subscription";
+    const safeName =
+      sub.name.replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-").toLowerCase() ||
+      "subscription";
     downloadFile(`reminder-${safeName}.ics`, ics, "text/calendar;charset=utf-8");
   }
 
@@ -364,6 +368,13 @@ export default function App() {
           </div>
 
           <div className="navRight">
+            <button
+              className="chipBtn ghost"
+              onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+              title="Toggle theme"
+            >
+              {theme === "dark" ? "Light mode" : "Dark mode"}
+            </button>
             <button className="chipBtn" onClick={exportCSV} title="Export all subscriptions to CSV">
               Export CSV
             </button>
@@ -392,15 +403,11 @@ export default function App() {
               <div className="statLabel">Active items</div>
             </div>
             <div className="stat">
-              <div className="statNum">
-                {totals.monthly.toFixed(2)}
-              </div>
+              <div className="statNum">{totals.monthly.toFixed(2)}</div>
               <div className="statLabel">Monthly estimate</div>
             </div>
             <div className="stat">
-              <div className="statNum">
-                {totals.yearly.toFixed(2)}
-              </div>
+              <div className="statNum">{totals.yearly.toFixed(2)}</div>
               <div className="statLabel">Yearly estimate</div>
             </div>
           </div>
@@ -411,8 +418,8 @@ export default function App() {
             <div className="cardHead">
               <h2>{editingId ? "Edit subscription" : "Add subscription"}</h2>
               {editingId ? (
-                <button className="smallBtn" onClick={resetForm}>
-                  Cancel edit
+                <button className="smallBtn ghost" onClick={resetForm}>
+                  Cancel
                 </button>
               ) : null}
             </div>
@@ -444,7 +451,9 @@ export default function App() {
                   Currency
                   <select value={form.currency} onChange={(e) => setForm((p) => ({ ...p, currency: e.target.value }))}>
                     {CURRENCY_OPTIONS.map((c) => (
-                      <option key={c} value={c}>{c}</option>
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
                     ))}
                   </select>
                 </label>
@@ -455,7 +464,9 @@ export default function App() {
                   Billing cycle
                   <select value={form.cycle} onChange={(e) => setForm((p) => ({ ...p, cycle: e.target.value }))}>
                     {CYCLE_OPTIONS.map((c) => (
-                      <option key={c.value} value={c.value}>{c.label}</option>
+                      <option key={c.value} value={c.value}>
+                        {c.label}
+                      </option>
                     ))}
                   </select>
                 </label>
@@ -475,7 +486,9 @@ export default function App() {
                 Category
                 <select value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}>
                   {CATEGORY_OPTIONS.map((c) => (
-                    <option key={c} value={c}>{c}</option>
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -485,7 +498,7 @@ export default function App() {
                 <textarea
                   value={form.notes}
                   onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-                  placeholder="Any extra info (trial ends, cancel link, etc.)"
+                  placeholder="Trial ends, cancel link, etc."
                   rows={3}
                 />
               </label>
@@ -509,7 +522,9 @@ export default function App() {
                 <select value={filterCat} onChange={(e) => setFilterCat(e.target.value)}>
                   <option value="All">All</option>
                   {CATEGORY_OPTIONS.map((c) => (
-                    <option key={c} value={c}>{c}</option>
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -536,18 +551,18 @@ export default function App() {
                             <span className="metaText">{s.category || "—"}</span>
                             <span className="dot" />
                             <span className="metaText">
-                              {s.currency}{Number(s.amount).toFixed(2)} · {s.cycle}
+                              {s.currency}
+                              {Number(s.amount).toFixed(2)} · {s.cycle}
                             </span>
                           </div>
                         </div>
 
                         <div className="itemAmt">
                           <div className="amtMain">
-                            {s.currency}{Number(s.amount).toFixed(2)}
+                            {s.currency}
+                            {Number(s.amount).toFixed(2)}
                           </div>
-                          <div className="amtSub">
-                            ~{monthlyEquivalent(s.amount, s.cycle).toFixed(2)}/mo
-                          </div>
+                          <div className="amtSub">~{monthlyEquivalent(s.amount, s.cycle).toFixed(2)}/mo</div>
                         </div>
                       </div>
 
@@ -580,13 +595,13 @@ export default function App() {
           </section>
         </div>
 
-        <section id="about" className="card">
+        <section id="about" className="card aboutCard">
           <div className="cardHead">
             <h2>How reminders work (Stage 1)</h2>
           </div>
           <p className="aboutText">
-            Click <b>Add reminder</b> on any subscription to download an <b>.ics</b> calendar file. Import it into your calendar
-            and you’ll get reminders automatically. (Stage 2 can add email reminders with login + a scheduled backend.)
+            Click <b>Add reminder</b> to download an <b>.ics</b> calendar file. Import it into your calendar and you’ll get reminders
+            automatically. (Stage 2 can add login + email reminders with a scheduled backend.)
           </p>
         </section>
 
