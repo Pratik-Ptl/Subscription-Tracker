@@ -102,9 +102,7 @@ function toCSV(subs) {
   const headers = ["name", "amount", "currency", "cycle", "nextDue", "category", "notes"];
   const escape = (v) => {
     const s = String(v ?? "");
-    if (s.includes('"') || s.includes(",") || s.includes("\n")) {
-      return `"${s.replace(/"/g, '""')}"`;
-    }
+    if (s.includes('"') || s.includes(",") || s.includes("\n")) return `"${s.replace(/"/g, '""')}"`;
     return s;
   };
   const rows = [headers.join(","), ...subs.map((s) => headers.map((h) => escape(s[h])).join(","))];
@@ -178,6 +176,19 @@ export default function App() {
     return prefersDark ? "dark" : "light";
   });
 
+  // Toast
+  const [toast, setToast] = useState(null); // { text, tone }
+
+  function showToast(text, tone = "ok") {
+    setToast({ text, tone });
+  }
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3200);
+    return () => clearTimeout(t);
+  }, [toast]);
+
   // Auth
   const [session, setSession] = useState(null);
   const [email, setEmail] = useState("");
@@ -210,6 +221,19 @@ export default function App() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(subs));
   }, [subs]);
 
+  function resetForm() {
+    setForm({
+      name: "",
+      amount: "",
+      currency: "$",
+      cycle: "monthly",
+      nextDue: toYMD(new Date()),
+      category: "Streaming",
+      notes: "",
+    });
+    setEditingId(null);
+  }
+
   // session
   useEffect(() => {
     let mounted = true;
@@ -229,6 +253,17 @@ export default function App() {
     };
   }, []);
 
+  async function refreshFromDb() {
+    if (!session?.user?.id) return;
+    const { data, error } = await supabase
+      .from("subscriptions")
+      .select("*")
+      .order("next_due", { ascending: true });
+
+    if (!error) setSubs((data || []).map(dbToUi));
+    else showToast("Refresh failed: " + error.message, "bad");
+  }
+
   // load from DB when logged in
   useEffect(() => {
     if (!session?.user?.id) return;
@@ -242,6 +277,7 @@ export default function App() {
 
       if (error) {
         setAuthMsg(`Load failed: ${error.message}`);
+        showToast(`Load failed: ${error.message}`, "bad");
         setLoading(false);
         return;
       }
@@ -277,35 +313,13 @@ export default function App() {
     return { monthly, yearly };
   }, [subs]);
 
-  function resetForm() {
-    setForm({
-      name: "",
-      amount: "",
-      currency: "$",
-      cycle: "monthly",
-      nextDue: toYMD(new Date()),
-      category: "Streaming",
-      notes: "",
-    });
-    setEditingId(null);
-  }
-
-  async function refreshFromDb() {
-    if (!session?.user?.id) return;
-    const { data, error } = await supabase
-      .from("subscriptions")
-      .select("*")
-      .order("next_due", { ascending: true });
-    if (!error) setSubs((data || []).map(dbToUi));
-  }
-
   async function onSubmit(e) {
     e.preventDefault();
 
     const name = form.name.trim();
     const amount = Number(form.amount);
-    if (!name) return alert("Please enter a subscription name.");
-    if (!Number.isFinite(amount) || amount <= 0) return alert("Please enter a valid amount (> 0).");
+    if (!name) return showToast("Please enter a subscription name.", "warn");
+    if (!Number.isFinite(amount) || amount <= 0) return showToast("Enter a valid amount (> 0).", "warn");
 
     const payload = {
       id: editingId ?? uid(),
@@ -328,14 +342,12 @@ export default function App() {
         .from("subscriptions")
         .upsert(uiToDb(payload, session.user.id), { onConflict: "id" });
 
-      if (error) {
-        alert("Saved locally, but cloud save failed: " + error.message);
-      } else {
-        await refreshFromDb();
-      }
+      if (error) showToast("Saved locally, but cloud save failed: " + error.message, "warn");
+      else await refreshFromDb();
     }
 
     resetForm();
+    showToast(editingId ? "Saved!" : "Added!", "ok");
   }
 
   function onEdit(sub) {
@@ -350,6 +362,7 @@ export default function App() {
       notes: sub.notes || "",
     });
     window.location.hash = "#top";
+    showToast("Editing item…", "muted");
   }
 
   async function onDelete(id) {
@@ -359,9 +372,11 @@ export default function App() {
 
     if (session?.user?.id) {
       const { error } = await supabase.from("subscriptions").delete().eq("id", id);
-      if (error) alert("Cloud delete failed: " + error.message);
+      if (error) showToast("Cloud delete failed: " + error.message, "bad");
       else await refreshFromDb();
     }
+
+    showToast("Deleted.", "muted");
   }
 
   async function onMarkPaid(sub) {
@@ -370,72 +385,94 @@ export default function App() {
     setSubs((prev) => prev.map((s) => (s.id === sub.id ? { ...s, nextDue: next } : s)));
 
     if (session?.user?.id) {
-      const { error } = await supabase
-        .from("subscriptions")
-        .update({ next_due: next })
-        .eq("id", sub.id);
-
-      if (error) alert("Cloud update failed: " + error.message);
+      const { error } = await supabase.from("subscriptions").update({ next_due: next }).eq("id", sub.id);
+      if (error) showToast("Cloud update failed: " + error.message, "bad");
       else await refreshFromDb();
     }
+
+    showToast("Marked paid → next due updated.", "ok");
   }
 
   function exportCSV() {
     const csv = toCSV(subs);
     downloadFile(`subtrack-${toYMD(new Date())}.csv`, csv, "text/csv;charset=utf-8");
+    showToast("Exported CSV.", "ok");
   }
 
   async function signInMagicLink() {
-    setAuthMsg("");
     const e = email.trim();
-    if (!e) return;
+    setAuthMsg("");
+
+    if (!e) {
+      showToast("Please enter your email first.", "warn");
+      return;
+    }
+
+    setAuthMsg("Sending magic link…");
 
     const emailRedirectTo = new URL(import.meta.env.BASE_URL, window.location.origin).toString();
 
-await supabase.auth.signInWithOtp({
-  email: e,
-  options: { emailRedirectTo },
-});
+    const { error } = await supabase.auth.signInWithOtp({
+      email: e,
+      options: { emailRedirectTo },
+    });
 
-
-    if (error) setAuthMsg(error.message);
-    else setAuthMsg("✅ Check your email for the sign-in link.");
+    if (error) {
+      setAuthMsg(error.message);
+      showToast(error.message, "bad");
+    } else {
+      const msg = "✅ Magic link sent — check your email.";
+      setAuthMsg(msg);
+      showToast(msg, "ok");
+      document.getElementById("signin")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   }
 
   async function signOut() {
     await supabase.auth.signOut();
+
+    // Clear UI + local data so expenses/totals disappear
+    setSubs([]);
+    localStorage.removeItem(STORAGE_KEY);
+
+    setEmail("");
     setAuthMsg("");
+    setQuery("");
+    setFilterCat("All");
+    resetForm();
+
+    showToast("Signed out. Cleared local data.", "muted");
   }
 
   async function importLocalToCloud() {
-    if (!session?.user?.id) return alert("Sign in first.");
-    if (
-      !confirm(
-        "Import your current local subscriptions into your cloud account? (May create duplicates)"
-      )
-    )
+    if (!session?.user?.id) return showToast("Sign in first.", "warn");
+
+    if (!confirm("Import your current local subscriptions into your cloud account? (May create duplicates)"))
       return;
 
     const userId = session.user.id;
     const rows = subs.map((s) => uiToDb(s, userId));
+
     const { error } = await supabase.from("subscriptions").insert(rows);
 
-    if (error) alert("Import failed: " + error.message);
+    if (error) showToast("Import failed: " + error.message, "bad");
     else {
-      alert("Imported!");
+      showToast("Imported to cloud!", "ok");
       await refreshFromDb();
     }
   }
 
   return (
     <div className="page" id="top">
+      {toast ? <div className={`toast ${toast.tone}`}>{toast.text}</div> : null}
+
       <header className="header">
         <div className="nav">
           <div className="brand">
             <div className="logoDot" />
             <div>
               <div className="brandName">SubTrack</div>
-              <div className="brandSub">Stage 2 · Login + Cloud Sync</div>
+              <div className="brandSub">Login + Cloud Sync</div>
             </div>
           </div>
 
@@ -468,7 +505,7 @@ await supabase.auth.signInWithOtp({
       <main className="container">
         <section className="hero">
           <div className="pill">
-            {session ? "Signed in · Sync enabled" : "Local mode · Sign in to sync across devices"}
+            {session ? "Signed in · Sync enabled" : "Signed out · Local data cleared"}
           </div>
 
           <h1>
@@ -476,7 +513,7 @@ await supabase.auth.signInWithOtp({
           </h1>
 
           <p className="sub">
-            Add memberships, track due dates, and estimate spend. Stage 2 adds login + cloud storage so your app works on any PC.
+            Add memberships, track due dates, and estimate spend. Magic link login lets you open this on any PC.
           </p>
 
           <div className="stats">
@@ -511,7 +548,7 @@ await supabase.auth.signInWithOtp({
                 />
               </label>
 
-              <button className="btn primary" onClick={signInMagicLink}>
+              <button className="btn primary" onClick={signInMagicLink} type="button">
                 Send magic link
               </button>
 
@@ -703,13 +740,13 @@ await supabase.auth.signInWithOtp({
                         </div>
 
                         <div className="actions">
-                          <button className="smallBtn" onClick={() => onMarkPaid(s)}>
+                          <button className="smallBtn" type="button" onClick={() => onMarkPaid(s)}>
                             Mark paid
                           </button>
-                          <button className="smallBtn ghost" onClick={() => onEdit(s)}>
+                          <button className="smallBtn ghost" type="button" onClick={() => onEdit(s)}>
                             Edit
                           </button>
-                          <button className="smallBtn danger" onClick={() => onDelete(s.id)}>
+                          <button className="smallBtn danger" type="button" onClick={() => onDelete(s.id)}>
                             Delete
                           </button>
                         </div>
