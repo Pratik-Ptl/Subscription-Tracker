@@ -178,16 +178,23 @@ export default function App() {
 
   // Toast
   const [toast, setToast] = useState(null); // { text, tone }
-
   function showToast(text, tone = "ok") {
     setToast({ text, tone });
   }
-
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 3200);
     return () => clearTimeout(t);
   }, [toast]);
+
+  // ✅ COOLDOWN TIMER FOR MAGIC LINK
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setInterval(() => setCooldown((c) => Math.max(0, c - 1)), 1000);
+    return () => clearInterval(t);
+  }, [cooldown]);
 
   // Auth
   const [session, setSession] = useState(null);
@@ -399,12 +406,18 @@ export default function App() {
     showToast("Exported CSV.", "ok");
   }
 
+  // ✅ MAGIC LINK SIGN IN (with cooldown)
   async function signInMagicLink() {
     const e = email.trim();
     setAuthMsg("");
 
     if (!e) {
       showToast("Please enter your email first.", "warn");
+      return;
+    }
+
+    if (cooldown > 0) {
+      showToast(`Please wait ${cooldown}s before requesting another link.`, "muted");
       return;
     }
 
@@ -420,18 +433,24 @@ export default function App() {
     if (error) {
       setAuthMsg(error.message);
       showToast(error.message, "bad");
-    } else {
-      const msg = "✅ Magic link sent — check your email.";
-      setAuthMsg(msg);
-      showToast(msg, "ok");
-      document.getElementById("signin")?.scrollIntoView({ behavior: "smooth", block: "start" });
+
+      // If rate limited, enforce a longer cooldown
+      if (String(error.message || "").toLowerCase().includes("rate")) {
+        setCooldown(120);
+      }
+      return;
     }
+
+    const msg = "✅ Magic link sent — check your email.";
+    setAuthMsg(msg);
+    showToast(msg, "ok");
+    setCooldown(60);
+    document.getElementById("signin")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   async function signOut() {
     await supabase.auth.signOut();
 
-    // Clear UI + local data so expenses/totals disappear
     setSubs([]);
     localStorage.removeItem(STORAGE_KEY);
 
@@ -548,8 +567,14 @@ export default function App() {
                 />
               </label>
 
-              <button className="btn primary" onClick={signInMagicLink} type="button">
-                Send magic link
+              <button
+                className="btn primary"
+                onClick={signInMagicLink}
+                type="button"
+                disabled={cooldown > 0}
+                title={cooldown > 0 ? "Please wait before requesting another link" : "Send magic link"}
+              >
+                {cooldown > 0 ? `Wait ${cooldown}s` : "Send magic link"}
               </button>
 
               {authMsg ? <p className="aboutText" style={{ margin: 0 }}>{authMsg}</p> : null}
@@ -571,6 +596,7 @@ export default function App() {
         )}
 
         <div className="grid2" style={{ marginTop: 16 }}>
+          {/* Add/Edit */}
           <section className="card">
             <div className="cardHead">
               <h2>{editingId ? "Edit subscription" : "Add subscription"}</h2>
@@ -675,6 +701,7 @@ export default function App() {
             </form>
           </section>
 
+          {/* Upcoming */}
           <section className="card">
             <div className="cardHead">
               <h2>Upcoming</h2>
