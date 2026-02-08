@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
+import { supabase } from "./supabaseClient";
 
 /** ---------- Helpers ---------- **/
 const STORAGE_KEY = "subtrack:v1";
-const THEME_KEY = "subtrack:theme";
 
 function safeParse(json, fallback) {
   try {
@@ -98,60 +98,6 @@ function downloadFile(filename, content, type = "text/plain;charset=utf-8") {
   URL.revokeObjectURL(url);
 }
 
-function escapeICS(s) {
-  return String(s ?? "")
-    .replace(/\\/g, "\\\\")
-    .replace(/\n/g, "\\n")
-    .replace(/,/g, "\\,")
-    .replace(/;/g, "\\;");
-}
-
-function cycleToRRule(cycle) {
-  if (cycle === "weekly") return "FREQ=WEEKLY;INTERVAL=1";
-  if (cycle === "monthly") return "FREQ=MONTHLY;INTERVAL=1";
-  if (cycle === "quarterly") return "FREQ=MONTHLY;INTERVAL=3";
-  if (cycle === "yearly") return "FREQ=YEARLY;INTERVAL=1";
-  return "FREQ=MONTHLY;INTERVAL=1";
-}
-
-function makeICS(sub) {
-  const dt = fromYMD(sub.nextDue);
-  const dtstamp = new Date();
-  const dtStart = `${dt.getFullYear()}${pad2(dt.getMonth() + 1)}${pad2(dt.getDate())}T090000`;
-  const dtStamp =
-    `${dtstamp.getUTCFullYear()}${pad2(dtstamp.getUTCMonth() + 1)}${pad2(dtstamp.getUTCDate())}T${pad2(dtstamp.getUTCHours())}${pad2(dtstamp.getUTCMinutes())}${pad2(dtstamp.getUTCSeconds())}Z`;
-
-  const uidVal = escapeICS(sub.id) + "@subtrack";
-  const summary = escapeICS(`${sub.name} payment due`);
-  const description = escapeICS(
-    `${sub.name}\nAmount: ${sub.currency}${Number(sub.amount || 0).toFixed(2)}\nCycle: ${sub.cycle}\nCategory: ${sub.category || "—"}\n\nCreated with SubTrack`
-  );
-
-  const ics = [
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    "PRODID:-//SubTrack//EN",
-    "CALSCALE:GREGORIAN",
-    "METHOD:PUBLISH",
-    "BEGIN:VEVENT",
-    `UID:${uidVal}`,
-    `DTSTAMP:${dtStamp}`,
-    `DTSTART:${dtStart}`,
-    `RRULE:${cycleToRRule(sub.cycle)}`,
-    `SUMMARY:${summary}`,
-    `DESCRIPTION:${description}`,
-    "BEGIN:VALARM",
-    "ACTION:DISPLAY",
-    "DESCRIPTION:Subscription reminder",
-    "TRIGGER:-P1D",
-    "END:VALARM",
-    "END:VEVENT",
-    "END:VCALENDAR",
-  ].join("\r\n");
-
-  return ics + "\r\n";
-}
-
 function toCSV(subs) {
   const headers = ["name", "amount", "currency", "cycle", "nextDue", "category", "notes"];
   const escape = (v) => {
@@ -161,16 +107,10 @@ function toCSV(subs) {
     }
     return s;
   };
-
-  const rows = [
-    headers.join(","),
-    ...subs.map((s) => headers.map((h) => escape(s[h])).join(",")),
-  ];
-
+  const rows = [headers.join(","), ...subs.map((s) => headers.map((h) => escape(s[h])).join(","))];
   return rows.join("\n");
 }
 
-/** ---------- UI constants ---------- **/
 const CATEGORY_OPTIONS = [
   "Streaming",
   "Music",
@@ -200,30 +140,57 @@ function badgeForDue(days) {
   return { text: `Due in ${days}d`, tone: "muted" };
 }
 
-function getInitialTheme() {
-  const saved = localStorage.getItem(THEME_KEY);
-  if (saved === "light" || saved === "dark") return saved;
+/** ---------- Supabase mapping ---------- **/
+function dbToUi(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    amount: String(row.amount),
+    currency: row.currency,
+    cycle: row.cycle,
+    nextDue: row.next_due,
+    category: row.category || "Other",
+    notes: row.notes || "",
+  };
+}
 
-  // Default to OS preference if nothing saved
-  const prefersDark =
-    typeof window !== "undefined" &&
-    window.matchMedia &&
-    window.matchMedia("(prefers-color-scheme: dark)").matches;
-
-  return prefersDark ? "dark" : "light";
+function uiToDb(sub, userId) {
+  return {
+    id: sub.id,
+    user_id: userId,
+    name: sub.name,
+    amount: Number(sub.amount),
+    currency: sub.currency,
+    cycle: sub.cycle,
+    next_due: sub.nextDue,
+    category: sub.category,
+    notes: sub.notes || null,
+  };
 }
 
 export default function App() {
-  const [theme, setTheme] = useState(getInitialTheme);
-
-  const [subs, setSubs] = useState(() => {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return safeParse(raw, []);
+  // Theme
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem("subtrack:theme");
+    if (saved === "light" || saved === "dark") return saved;
+    const prefersDark =
+      window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    return prefersDark ? "dark" : "light";
   });
 
+  // Auth
+  const [session, setSession] = useState(null);
+  const [email, setEmail] = useState("");
+  const [authMsg, setAuthMsg] = useState("");
+
+  // Data
+  const [subs, setSubs] = useState(() => safeParse(localStorage.getItem(STORAGE_KEY), []));
+  const [loading, setLoading] = useState(false);
+
+  // UI
   const [query, setQuery] = useState("");
   const [filterCat, setFilterCat] = useState("All");
-
+  const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({
     name: "",
     amount: "",
@@ -234,16 +201,55 @@ export default function App() {
     notes: "",
   });
 
-  const [editingId, setEditingId] = useState(null);
-
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    localStorage.setItem(THEME_KEY, theme);
+    localStorage.setItem("subtrack:theme", theme);
   }, [theme]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(subs));
   }, [subs]);
+
+  // session
+  useEffect(() => {
+    let mounted = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      setSession(data.session || null);
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession || null);
+    });
+
+    return () => {
+      mounted = false;
+      sub?.subscription?.unsubscribe?.();
+    };
+  }, []);
+
+  // load from DB when logged in
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    (async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("subscriptions")
+        .select("*")
+        .order("next_due", { ascending: true });
+
+      if (error) {
+        setAuthMsg(`Load failed: ${error.message}`);
+        setLoading(false);
+        return;
+      }
+
+      setSubs((data || []).map(dbToUi));
+      setLoading(false);
+    })();
+  }, [session?.user?.id]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -284,15 +290,22 @@ export default function App() {
     setEditingId(null);
   }
 
-  function onSubmit(e) {
+  async function refreshFromDb() {
+    if (!session?.user?.id) return;
+    const { data, error } = await supabase
+      .from("subscriptions")
+      .select("*")
+      .order("next_due", { ascending: true });
+    if (!error) setSubs((data || []).map(dbToUi));
+  }
+
+  async function onSubmit(e) {
     e.preventDefault();
 
     const name = form.name.trim();
     const amount = Number(form.amount);
-
     if (!name) return alert("Please enter a subscription name.");
     if (!Number.isFinite(amount) || amount <= 0) return alert("Please enter a valid amount (> 0).");
-    if (!form.nextDue) return alert("Please select a due date.");
 
     const payload = {
       id: editingId ?? uid(),
@@ -303,13 +316,24 @@ export default function App() {
       nextDue: form.nextDue,
       category: form.category,
       notes: form.notes?.trim() ?? "",
-      updatedAt: new Date().toISOString(),
     };
 
     setSubs((prev) => {
       if (editingId) return prev.map((s) => (s.id === editingId ? { ...s, ...payload } : s));
       return [payload, ...prev];
     });
+
+    if (session?.user?.id) {
+      const { error } = await supabase
+        .from("subscriptions")
+        .upsert(uiToDb(payload, session.user.id), { onConflict: "id" });
+
+      if (error) {
+        alert("Saved locally, but cloud save failed: " + error.message);
+      } else {
+        await refreshFromDb();
+      }
+    }
 
     resetForm();
   }
@@ -328,18 +352,32 @@ export default function App() {
     window.location.hash = "#top";
   }
 
-  function onDelete(id) {
+  async function onDelete(id) {
     if (!confirm("Delete this subscription?")) return;
+
     setSubs((prev) => prev.filter((s) => s.id !== id));
+
+    if (session?.user?.id) {
+      const { error } = await supabase.from("subscriptions").delete().eq("id", id);
+      if (error) alert("Cloud delete failed: " + error.message);
+      else await refreshFromDb();
+    }
   }
 
-  function onMarkPaid(sub) {
+  async function onMarkPaid(sub) {
     const next = nextDueYMD(sub.nextDue, sub.cycle);
-    setSubs((prev) =>
-      prev.map((s) =>
-        s.id === sub.id ? { ...s, nextDue: next, updatedAt: new Date().toISOString() } : s
-      )
-    );
+
+    setSubs((prev) => prev.map((s) => (s.id === sub.id ? { ...s, nextDue: next } : s)));
+
+    if (session?.user?.id) {
+      const { error } = await supabase
+        .from("subscriptions")
+        .update({ next_due: next })
+        .eq("id", sub.id);
+
+      if (error) alert("Cloud update failed: " + error.message);
+      else await refreshFromDb();
+    }
   }
 
   function exportCSV() {
@@ -347,12 +385,45 @@ export default function App() {
     downloadFile(`subtrack-${toYMD(new Date())}.csv`, csv, "text/csv;charset=utf-8");
   }
 
-  function downloadICS(sub) {
-    const ics = makeICS(sub);
-    const safeName =
-      sub.name.replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-").toLowerCase() ||
-      "subscription";
-    downloadFile(`reminder-${safeName}.ics`, ics, "text/calendar;charset=utf-8");
+  async function signInMagicLink() {
+    setAuthMsg("");
+    const e = email.trim();
+    if (!e) return;
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email: e,
+      options: {
+        emailRedirectTo: window.location.href,
+      },
+    });
+
+    if (error) setAuthMsg(error.message);
+    else setAuthMsg("✅ Check your email for the sign-in link.");
+  }
+
+  async function signOut() {
+    await supabase.auth.signOut();
+    setAuthMsg("");
+  }
+
+  async function importLocalToCloud() {
+    if (!session?.user?.id) return alert("Sign in first.");
+    if (
+      !confirm(
+        "Import your current local subscriptions into your cloud account? (May create duplicates)"
+      )
+    )
+      return;
+
+    const userId = session.user.id;
+    const rows = subs.map((s) => uiToDb(s, userId));
+    const { error } = await supabase.from("subscriptions").insert(rows);
+
+    if (error) alert("Import failed: " + error.message);
+    else {
+      alert("Imported!");
+      await refreshFromDb();
+    }
   }
 
   return (
@@ -363,7 +434,7 @@ export default function App() {
             <div className="logoDot" />
             <div>
               <div className="brandName">SubTrack</div>
-              <div className="brandSub">Subscription & spending tracker</div>
+              <div className="brandSub">Stage 2 · Login + Cloud Sync</div>
             </div>
           </div>
 
@@ -375,32 +446,42 @@ export default function App() {
             >
               {theme === "dark" ? "Light mode" : "Dark mode"}
             </button>
-            <button className="chipBtn" onClick={exportCSV} title="Export all subscriptions to CSV">
+
+            <button className="chipBtn" onClick={exportCSV}>
               Export CSV
             </button>
-            <a className="chipBtn ghost" href="#about">
-              About
-            </a>
+
+            {session ? (
+              <button className="chipBtn ghost" onClick={signOut}>
+                Sign out
+              </button>
+            ) : (
+              <a className="chipBtn ghost" href="#signin">
+                Sign in
+              </a>
+            )}
           </div>
         </div>
       </header>
 
       <main className="container">
         <section className="hero">
-          <div className="pill">Stage 1 · LocalStorage · Calendar reminders (.ics)</div>
+          <div className="pill">
+            {session ? "Signed in · Sync enabled" : "Local mode · Sign in to sync across devices"}
+          </div>
 
           <h1>
-            Track subscriptions. <span className="accent">Never miss</span> a renewal.
+            Subscriptions, organized. <span className="accent">Synced everywhere.</span>
           </h1>
 
           <p className="sub">
-            Add your memberships/subscriptions, see upcoming due dates, estimate monthly spend, and download calendar reminders.
+            Add memberships, track due dates, and estimate spend. Stage 2 adds login + cloud storage so your app works on any PC.
           </p>
 
           <div className="stats">
             <div className="stat">
               <div className="statNum">{subs.length}</div>
-              <div className="statLabel">Active items</div>
+              <div className="statLabel">Items</div>
             </div>
             <div className="stat">
               <div className="statNum">{totals.monthly.toFixed(2)}</div>
@@ -413,7 +494,45 @@ export default function App() {
           </div>
         </section>
 
-        <div className="grid2">
+        {!session ? (
+          <section className="card" id="signin" style={{ marginTop: 16 }}>
+            <div className="cardHead">
+              <h2>Sign in to sync</h2>
+            </div>
+
+            <div className="form">
+              <label>
+                Email
+                <input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                />
+              </label>
+
+              <button className="btn primary" onClick={signInMagicLink}>
+                Send magic link
+              </button>
+
+              {authMsg ? <p className="aboutText" style={{ margin: 0 }}>{authMsg}</p> : null}
+            </div>
+          </section>
+        ) : (
+          <section className="card" style={{ marginTop: 16 }}>
+            <div className="cardHead">
+              <h2>Sync tools</h2>
+              <button className="smallBtn" onClick={importLocalToCloud}>
+                Import local → cloud
+              </button>
+            </div>
+            <p className="aboutText">
+              You’re signed in as <b>{session.user.email}</b>. Your subscriptions are stored in Supabase and will appear on any device when you log in.
+              {loading ? " (Loading…)" : ""}
+            </p>
+          </section>
+        )}
+
+        <div className="grid2" style={{ marginTop: 16 }}>
           <section className="card">
             <div className="cardHead">
               <h2>{editingId ? "Edit subscription" : "Add subscription"}</h2>
@@ -449,7 +568,10 @@ export default function App() {
 
                 <label>
                   Currency
-                  <select value={form.currency} onChange={(e) => setForm((p) => ({ ...p, currency: e.target.value }))}>
+                  <select
+                    value={form.currency}
+                    onChange={(e) => setForm((p) => ({ ...p, currency: e.target.value }))}
+                  >
                     {CURRENCY_OPTIONS.map((c) => (
                       <option key={c} value={c}>
                         {c}
@@ -462,7 +584,10 @@ export default function App() {
               <div className="row">
                 <label>
                   Billing cycle
-                  <select value={form.cycle} onChange={(e) => setForm((p) => ({ ...p, cycle: e.target.value }))}>
+                  <select
+                    value={form.cycle}
+                    onChange={(e) => setForm((p) => ({ ...p, cycle: e.target.value }))}
+                  >
                     {CYCLE_OPTIONS.map((c) => (
                       <option key={c.value} value={c.value}>
                         {c.label}
@@ -484,7 +609,10 @@ export default function App() {
 
               <label>
                 Category
-                <select value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}>
+                <select
+                  value={form.category}
+                  onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
+                >
                   {CATEGORY_OPTIONS.map((c) => (
                     <option key={c} value={c}>
                       {c}
@@ -533,13 +661,14 @@ export default function App() {
             {filtered.length === 0 ? (
               <div className="empty">
                 <div className="emptyTitle">No subscriptions yet</div>
-                <div className="emptyText">Add your first one on the left — it will appear here sorted by due date.</div>
+                <div className="emptyText">Add your first one — it will appear here sorted by due date.</div>
               </div>
             ) : (
               <div className="list">
                 {filtered.map((s) => {
                   const d = daysUntil(s.nextDue);
                   const b = badgeForDue(d);
+
                   return (
                     <article className="item" key={s.id}>
                       <div className="itemTop">
@@ -573,11 +702,8 @@ export default function App() {
                         </div>
 
                         <div className="actions">
-                          <button className="smallBtn" onClick={() => onMarkPaid(s)} title="Advance next due date">
+                          <button className="smallBtn" onClick={() => onMarkPaid(s)}>
                             Mark paid
-                          </button>
-                          <button className="smallBtn" onClick={() => downloadICS(s)} title="Download calendar reminder (.ics)">
-                            Add reminder
                           </button>
                           <button className="smallBtn ghost" onClick={() => onEdit(s)}>
                             Edit
@@ -594,16 +720,6 @@ export default function App() {
             )}
           </section>
         </div>
-
-        <section id="about" className="card aboutCard">
-          <div className="cardHead">
-            <h2>How reminders work (Stage 1)</h2>
-          </div>
-          <p className="aboutText">
-            Click <b>Add reminder</b> to download an <b>.ics</b> calendar file. Import it into your calendar and you’ll get reminders
-            automatically. (Stage 2 can add login + email reminders with a scheduled backend.)
-          </p>
-        </section>
 
         <footer className="footer">© {new Date().getFullYear()} Pratik Patel · SubTrack</footer>
       </main>
