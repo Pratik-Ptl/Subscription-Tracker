@@ -1,793 +1,619 @@
-import { useEffect, useMemo, useState } from "react";
-import "./App.css";
-import { supabase } from "./supabaseClient";
+/* =========================
+   SubTrack — Elegant UI CSS
+   Works with the App.jsx I gave you
+   ========================= */
 
-/** ---------- Helpers ---------- **/
-const STORAGE_KEY = "subtrack:v1";
+/* ---------- Theme tokens ---------- */
+:root{
+  /* background + surfaces */
+  --bg: #070A12;
+  --bg2: #0A1020;
+  --surface: rgba(255,255,255,0.06);
+  --surface2: rgba(255,255,255,0.085);
+  --stroke: rgba(255,255,255,0.12);
+  --stroke2: rgba(255,255,255,0.18);
 
-function safeParse(json, fallback) {
-  try {
-    const v = JSON.parse(json);
-    return v ?? fallback;
-  } catch {
-    return fallback;
+  /* text */
+  --text: rgba(255,255,255,0.92);
+  --muted: rgba(255,255,255,0.72);
+  --muted2: rgba(255,255,255,0.58);
+
+  /* accents */
+  --a1: #7c3aed;  /* violet */
+  --a2: #22d3ee;  /* cyan */
+  --a3: #34d399;  /* green */
+
+  /* layout */
+  --radius: 18px;
+  --radius2: 14px;
+
+  /* shadows (softer, more premium) */
+  --shadow-sm: 0 10px 30px rgba(0,0,0,0.22);
+  --shadow:    0 18px 60px rgba(0,0,0,0.32);
+
+  /* weights */
+  --w-regular: 500;
+  --w-medium: 600;
+  --w-semibold: 650;
+  --w-bold: 760;
+  --w-heavy: 860;
+}
+
+:root[data-theme="light"]{
+  --bg: #f7f8ff;
+  --bg2:#ffffff;
+  --surface: rgba(10,16,32,0.045);
+  --surface2: rgba(10,16,32,0.06);
+  --stroke: rgba(10,16,32,0.12);
+  --stroke2: rgba(10,16,32,0.18);
+
+  --text: rgba(7,10,18,0.92);
+  --muted: rgba(7,10,18,0.70);
+  --muted2: rgba(7,10,18,0.55);
+
+  --shadow-sm: 0 10px 30px rgba(15,18,35,0.10);
+  --shadow:    0 18px 60px rgba(15,18,35,0.14);
+}
+
+/* ---------- Base ---------- */
+*{ box-sizing: border-box; }
+html, body{ height: 100%; }
+
+body{
+  margin: 0;
+  color: var(--text);
+  background:
+    radial-gradient(900px 600px at 14% 12%, rgba(124,58,237,0.22), transparent 60%),
+    radial-gradient(900px 600px at 86% 22%, rgba(34,211,238,0.14), transparent 58%),
+    radial-gradient(900px 600px at 66% 88%, rgba(52,211,153,0.10), transparent 55%),
+    linear-gradient(180deg, var(--bg), var(--bg2));
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+  font-weight: var(--w-regular);
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a{ color: inherit; text-decoration: none; }
+button, input, select, textarea{ font: inherit; color: inherit; }
+button{ border: none; background: none; }
+
+/* better focus */
+:focus{ outline: none; }
+:focus-visible{
+  box-shadow: 0 0 0 4px rgba(34,211,238,0.14);
+  border-radius: 12px;
+}
+
+/* ---------- Page wrapper ---------- */
+.page{
+  min-height: 100vh;
+  position: relative;
+}
+
+/* subtle “sheen” overlay */
+.page::before{
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(900px 400px at 50% -10%, rgba(255,255,255,0.06), transparent 60%),
+    radial-gradient(800px 500px at 10% 90%, rgba(255,255,255,0.04), transparent 55%);
+  opacity: 0.8;
+}
+
+/* ---------- Header / Nav ---------- */
+.header{
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  border-bottom: 1px solid var(--stroke);
+  background: rgba(10,16,32,0.35);
+  backdrop-filter: blur(14px);
+}
+
+:root[data-theme="light"] .header{
+  background: rgba(255,255,255,0.75);
+}
+
+.nav{
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.brand{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logoDot{
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--a1), var(--a2), var(--a3));
+  box-shadow: 0 0 0 7px rgba(124,58,237,0.11);
+}
+
+.brandName{
+  font-weight: var(--w-heavy);
+  letter-spacing: -0.03em;
+}
+
+.brandSub{
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--muted2);
+  font-weight: var(--w-regular);
+}
+
+.navRight{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* ---------- Container ---------- */
+.container{
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 22px 18px 52px;
+}
+
+/* ---------- Hero ---------- */
+.hero{
+  padding: 20px 0 6px;
+}
+
+.pill{
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,0.05);
+  color: var(--muted);
+  font-weight: var(--w-medium);
+}
+
+.hero h1{
+  margin: 14px 0 10px;
+  font-size: clamp(30px, 4vw, 46px);
+  line-height: 1.1;
+  letter-spacing: -0.045em;
+  font-weight: var(--w-heavy);
+}
+
+.accent{
+  background: linear-gradient(90deg, var(--a1), var(--a2), var(--a3));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.sub{
+  margin: 0;
+  max-width: 74ch;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+/* ---------- Stat cards ---------- */
+.stats{
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.stat{
+  border: 1px solid var(--stroke);
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.035));
+  border-radius: var(--radius);
+  padding: 14px 14px;
+  box-shadow: var(--shadow-sm);
+}
+
+.statNum{
+  font-weight: var(--w-bold);
+  font-size: 22px;
+  letter-spacing: -0.01em;
+}
+
+.statLabel{
+  margin-top: 6px;
+  color: var(--muted2);
+  font-weight: var(--w-medium);
+  font-size: 12px;
+}
+
+/* ---------- Cards ---------- */
+.grid2{
+  display: grid;
+  grid-template-columns: 1.02fr 1.5fr;
+  gap: 14px;
+}
+
+.card{
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,0.05);
+  border-radius: calc(var(--radius) + 2px);
+  padding: 16px;
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
+}
+
+.card::after{
+  content:"";
+  position:absolute;
+  inset: -1px;
+  pointer-events:none;
+  background: radial-gradient(800px 220px at 30% 0%, rgba(34,211,238,0.10), transparent 55%);
+  opacity: 0.9;
+}
+
+.card > *{ position: relative; z-index: 1; }
+
+.cardHead{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--stroke);
+  margin-bottom: 14px;
+}
+
+.cardHead h2{
+  margin: 0;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  font-weight: var(--w-semibold);
+}
+
+.aboutText{
+  color: var(--muted);
+  line-height: 1.7;
+  font-weight: var(--w-regular);
+}
+
+/* ---------- Form ---------- */
+.form{ display: grid; gap: 12px; }
+
+label{
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+  font-weight: var(--w-medium);
+  font-size: 13px;
+}
+
+input, select, textarea{
+  background: rgba(255,255,255,0.055);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius2);
+  padding: 12px 12px;
+  transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease, background .15s ease;
+}
+
+:root[data-theme="light"] input,
+:root[data-theme="light"] select,
+:root[data-theme="light"] textarea{
+  background: rgba(255,255,255,0.82);
+}
+
+input::placeholder, textarea::placeholder{
+  color: rgba(255,255,255,0.45);
+}
+:root[data-theme="light"] input::placeholder,
+:root[data-theme="light"] textarea::placeholder{
+  color: rgba(7,10,18,0.40);
+}
+
+input:focus, select:focus, textarea:focus{
+  border-color: rgba(34,211,238,0.45);
+  box-shadow: 0 0 0 4px rgba(34,211,238,0.12);
+}
+
+textarea{ resize: vertical; }
+
+.row{
+  display: grid;
+  grid-template-columns: 1fr 0.85fr;
+  gap: 10px;
+}
+
+.filters{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.search{ width: min(360px, 48vw); }
+
+/* ---------- Buttons ---------- */
+.chipBtn{
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,0.06);
+  padding: 10px 12px;
+  border-radius: 999px;
+  font-weight: var(--w-medium);
+  cursor: pointer;
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease, background .15s ease;
+}
+
+.chipBtn:hover{
+  transform: translateY(-1px);
+  border-color: rgba(34,211,238,0.26);
+  box-shadow: 0 12px 26px rgba(0,0,0,0.20);
+}
+
+.chipBtn.ghost{
+  background: transparent;
+}
+
+.btn{
+  border: 1px solid var(--stroke);
+  border-radius: 16px;
+  padding: 12px 14px;
+  cursor: pointer;
+  font-weight: var(--w-semibold);
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease, filter .15s ease;
+}
+
+.btn:hover{ transform: translateY(-1px); }
+
+.btn.primary{
+  border-color: rgba(34,211,238,0.26);
+  background:
+    linear-gradient(90deg, rgba(124,58,237,0.22), rgba(34,211,238,0.18), rgba(52,211,153,0.14));
+  box-shadow: 0 18px 45px rgba(0,0,0,0.30);
+}
+
+.btn.primary:hover{
+  filter: brightness(1.05);
+  box-shadow: 0 22px 55px rgba(0,0,0,0.34);
+}
+
+/* disabled (cooldown) */
+.btn:disabled,
+.smallBtn:disabled,
+.chipBtn:disabled{
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* small buttons */
+.smallBtn{
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,0.06);
+  padding: 9px 11px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: var(--w-medium);
+  transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+
+.smallBtn:hover{
+  transform: translateY(-1px);
+  border-color: rgba(124,58,237,0.24);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.16);
+}
+
+.smallBtn.ghost{ background: transparent; }
+
+.smallBtn.danger{
+  border-color: rgba(231,76,60,0.26);
+  background: rgba(231,76,60,0.06);
+}
+
+.smallBtn.danger:hover{
+  border-color: rgba(231,76,60,0.46);
+  box-shadow: 0 16px 30px rgba(231,76,60,0.12);
+}
+
+/* ---------- List ---------- */
+.list{ display: grid; gap: 12px; }
+
+.item{
+  border: 1px solid var(--stroke);
+  background: rgba(255,255,255,0.04);
+  border-radius: var(--radius);
+  padding: 14px;
+  transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease, background .15s ease;
+}
+
+.item:hover{
+  transform: translateY(-1px);
+  border-color: rgba(34,211,238,0.18);
+  box-shadow: var(--shadow-sm);
+  background: rgba(255,255,255,0.05);
+}
+
+.itemTop{
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.itemName{
+  font-weight: var(--w-semibold);
+  letter-spacing: -0.01em;
+}
+
+.itemMeta{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.dot{
+  width: 4px;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--stroke2);
+}
+
+.metaText{
+  color: var(--muted);
+  font-weight: var(--w-regular);
+  font-size: 12px;
+}
+
+.badge{
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke);
+  font-weight: var(--w-medium);
+  font-size: 12px;
+}
+
+.badge.ok{
+  background: rgba(52,211,153,0.10);
+  border-color: rgba(52,211,153,0.18);
+}
+
+.badge.warn{
+  background: rgba(241,196,15,0.12);
+  border-color: rgba(241,196,15,0.22);
+}
+
+.badge.bad{
+  background: rgba(231,76,60,0.12);
+  border-color: rgba(231,76,60,0.22);
+}
+
+.badge.muted{
+  background: rgba(255,255,255,0.05);
+}
+
+.itemAmt{
+  text-align: right;
+  min-width: 150px;
+}
+
+.amtMain{
+  font-weight: var(--w-semibold);
+  letter-spacing: -0.01em;
+}
+
+.amtSub{
+  margin-top: 6px;
+  color: var(--muted2);
+  font-weight: var(--w-regular);
+  font-size: 12px;
+}
+
+.itemBottom{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--stroke);
+  flex-wrap: wrap;
+}
+
+.dueLine{
+  color: var(--muted);
+  font-weight: var(--w-regular);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.dueDate{
+  color: var(--text);
+  font-weight: var(--w-medium);
+}
+
+.note{ color: var(--muted2); }
+
+/* ---------- Empty state ---------- */
+.empty{
+  padding: 18px 12px;
+  border: 1px dashed var(--stroke);
+  border-radius: var(--radius);
+  background: rgba(255,255,255,0.035);
+}
+
+.emptyTitle{
+  font-weight: var(--w-semibold);
+  letter-spacing: -0.01em;
+}
+
+.emptyText{
+  margin-top: 8px;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+/* ---------- Footer ---------- */
+.footer{
+  margin-top: 22px;
+  color: var(--muted2);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* ---------- Toast ---------- */
+.toast{
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  padding: 12px 14px;
+  border-radius: 14px;
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.14);
+  box-shadow: 0 18px 48px rgba(0,0,0,0.30);
+  max-width: min(560px, 92vw);
+  font-weight: var(--w-medium);
+}
+
+.toast.ok { background: rgba(46, 204, 113, 0.12); }
+.toast.warn { background: rgba(241, 196, 15, 0.14); }
+.toast.bad { background: rgba(231, 76, 60, 0.14); }
+.toast.muted { background: rgba(255, 255, 255, 0.09); }
+
+:root[data-theme="light"] .toast{
+  border: 1px solid rgba(10,16,32,0.16);
+  box-shadow: 0 18px 48px rgba(15,18,35,0.12);
+}
+
+/* ---------- Reduced motion ---------- */
+@media (prefers-reduced-motion: reduce){
+  *{ transition: none !important; }
+  .item:hover, .chipBtn:hover, .btn:hover, .smallBtn:hover{
+    transform: none !important;
   }
 }
 
-function uid() {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
-  return String(Date.now()) + "-" + Math.random().toString(16).slice(2);
-}
-
-function pad2(n) {
-  return String(n).padStart(2, "0");
-}
-
-function toYMD(date) {
-  const d = new Date(date);
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-}
-
-function fromYMD(ymd) {
-  const [y, m, d] = ymd.split("-").map(Number);
-  return new Date(y, (m || 1) - 1, d || 1);
-}
-
-function daysUntil(ymd) {
-  const today = new Date();
-  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const due = fromYMD(ymd);
-  const ms = due.getTime() - start.getTime();
-  return Math.round(ms / (1000 * 60 * 60 * 24));
-}
-
-function daysInMonth(year, monthIndex) {
-  return new Date(year, monthIndex + 1, 0).getDate();
-}
-
-function addMonthsClamped(date, monthsToAdd) {
-  const d = new Date(date);
-  const day = d.getDate();
-  d.setDate(1);
-  d.setMonth(d.getMonth() + monthsToAdd);
-  const dim = daysInMonth(d.getFullYear(), d.getMonth());
-  d.setDate(Math.min(day, dim));
-  return d;
-}
-
-function nextDueYMD(currentYMD, cycle) {
-  const current = fromYMD(currentYMD);
-  let next;
-  if (cycle === "weekly") {
-    next = new Date(current);
-    next.setDate(next.getDate() + 7);
-  } else if (cycle === "monthly") next = addMonthsClamped(current, 1);
-  else if (cycle === "quarterly") next = addMonthsClamped(current, 3);
-  else if (cycle === "yearly") next = addMonthsClamped(current, 12);
-  else next = addMonthsClamped(current, 1);
-  return toYMD(next);
-}
-
-function monthlyEquivalent(amount, cycle) {
-  const a = Number(amount) || 0;
-  if (cycle === "monthly") return a;
-  if (cycle === "yearly") return a / 12;
-  if (cycle === "weekly") return (a * 52) / 12;
-  if (cycle === "quarterly") return a / 3;
-  return a;
-}
-
-function yearlyEquivalent(amount, cycle) {
-  const a = Number(amount) || 0;
-  if (cycle === "monthly") return a * 12;
-  if (cycle === "yearly") return a;
-  if (cycle === "weekly") return a * 52;
-  if (cycle === "quarterly") return a * 4;
-  return a * 12;
-}
-
-function downloadFile(filename, content, type = "text/plain;charset=utf-8") {
-  const blob = new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
-function toCSV(subs) {
-  const headers = ["name", "amount", "currency", "cycle", "nextDue", "category", "notes"];
-  const escape = (v) => {
-    const s = String(v ?? "");
-    if (s.includes('"') || s.includes(",") || s.includes("\n")) return `"${s.replace(/"/g, '""')}"`;
-    return s;
-  };
-  const rows = [headers.join(","), ...subs.map((s) => headers.map((h) => escape(s[h])).join(","))];
-  return rows.join("\n");
-}
-
-const CATEGORY_OPTIONS = [
-  "Streaming",
-  "Music",
-  "Cloud/Storage",
-  "Gym/Fitness",
-  "Utilities",
-  "Education",
-  "Software",
-  "Games",
-  "Other",
-];
-
-const CYCLE_OPTIONS = [
-  { value: "monthly", label: "Monthly" },
-  { value: "yearly", label: "Yearly" },
-  { value: "weekly", label: "Weekly" },
-  { value: "quarterly", label: "Quarterly" },
-];
-
-const CURRENCY_OPTIONS = ["$", "CAD $", "USD $", "₹", "€", "£"];
-
-function badgeForDue(days) {
-  if (days < 0) return { text: `${Math.abs(days)}d overdue`, tone: "bad" };
-  if (days === 0) return { text: "Due today", tone: "bad" };
-  if (days <= 3) return { text: `Due in ${days}d`, tone: "warn" };
-  if (days <= 14) return { text: `Due in ${days}d`, tone: "ok" };
-  return { text: `Due in ${days}d`, tone: "muted" };
-}
-
-/** ---------- Supabase mapping ---------- **/
-function dbToUi(row) {
-  return {
-    id: row.id,
-    name: row.name,
-    amount: String(row.amount),
-    currency: row.currency,
-    cycle: row.cycle,
-    nextDue: row.next_due,
-    category: row.category || "Other",
-    notes: row.notes || "",
-  };
-}
-
-function uiToDb(sub, userId) {
-  return {
-    id: sub.id,
-    user_id: userId,
-    name: sub.name,
-    amount: Number(sub.amount),
-    currency: sub.currency,
-    cycle: sub.cycle,
-    next_due: sub.nextDue,
-    category: sub.category,
-    notes: sub.notes || null,
-  };
-}
-
-export default function App() {
-  // Theme
-  const [theme, setTheme] = useState(() => {
-    const saved = localStorage.getItem("subtrack:theme");
-    if (saved === "light" || saved === "dark") return saved;
-    const prefersDark =
-      window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-    return prefersDark ? "dark" : "light";
-  });
-
-  // Toast
-  const [toast, setToast] = useState(null); // { text, tone }
-  function showToast(text, tone = "ok") {
-    setToast({ text, tone });
-  }
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 3200);
-    return () => clearTimeout(t);
-  }, [toast]);
-
-  // ✅ COOLDOWN TIMER FOR MAGIC LINK
-  const [cooldown, setCooldown] = useState(0);
-
-  useEffect(() => {
-    if (cooldown <= 0) return;
-    const t = setInterval(() => setCooldown((c) => Math.max(0, c - 1)), 1000);
-    return () => clearInterval(t);
-  }, [cooldown]);
-
-  // Auth
-  const [session, setSession] = useState(null);
-  const [email, setEmail] = useState("");
-  const [authMsg, setAuthMsg] = useState("");
-
-  // Data
-  const [subs, setSubs] = useState(() => safeParse(localStorage.getItem(STORAGE_KEY), []));
-  const [loading, setLoading] = useState(false);
-
-  // UI
-  const [query, setQuery] = useState("");
-  const [filterCat, setFilterCat] = useState("All");
-  const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState({
-    name: "",
-    amount: "",
-    currency: "$",
-    cycle: "monthly",
-    nextDue: toYMD(new Date()),
-    category: "Streaming",
-    notes: "",
-  });
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    localStorage.setItem("subtrack:theme", theme);
-  }, [theme]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(subs));
-  }, [subs]);
-
-  function resetForm() {
-    setForm({
-      name: "",
-      amount: "",
-      currency: "$",
-      cycle: "monthly",
-      nextDue: toYMD(new Date()),
-      category: "Streaming",
-      notes: "",
-    });
-    setEditingId(null);
-  }
-
-  // session
-  useEffect(() => {
-    let mounted = true;
-
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return;
-      setSession(data.session || null);
-    });
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession || null);
-    });
-
-    return () => {
-      mounted = false;
-      sub?.subscription?.unsubscribe?.();
-    };
-  }, []);
-
-  async function refreshFromDb() {
-    if (!session?.user?.id) return;
-    const { data, error } = await supabase
-      .from("subscriptions")
-      .select("*")
-      .order("next_due", { ascending: true });
-
-    if (!error) setSubs((data || []).map(dbToUi));
-    else showToast("Refresh failed: " + error.message, "bad");
-  }
-
-  // load from DB when logged in
-  useEffect(() => {
-    if (!session?.user?.id) return;
-
-    (async () => {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from("subscriptions")
-        .select("*")
-        .order("next_due", { ascending: true });
-
-      if (error) {
-        setAuthMsg(`Load failed: ${error.message}`);
-        showToast(`Load failed: ${error.message}`, "bad");
-        setLoading(false);
-        return;
-      }
-
-      setSubs((data || []).map(dbToUi));
-      setLoading(false);
-    })();
-  }, [session?.user?.id]);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return subs
-      .filter((s) => {
-        const matchesQuery =
-          !q ||
-          s.name.toLowerCase().includes(q) ||
-          (s.category || "").toLowerCase().includes(q) ||
-          (s.notes || "").toLowerCase().includes(q);
-
-        const matchesCat = filterCat === "All" || s.category === filterCat;
-        return matchesQuery && matchesCat;
-      })
-      .sort((a, b) => fromYMD(a.nextDue).getTime() - fromYMD(b.nextDue).getTime());
-  }, [subs, query, filterCat]);
-
-  const totals = useMemo(() => {
-    let monthly = 0;
-    let yearly = 0;
-    for (const s of subs) {
-      monthly += monthlyEquivalent(s.amount, s.cycle);
-      yearly += yearlyEquivalent(s.amount, s.cycle);
-    }
-    return { monthly, yearly };
-  }, [subs]);
-
-  async function onSubmit(e) {
-    e.preventDefault();
-
-    const name = form.name.trim();
-    const amount = Number(form.amount);
-    if (!name) return showToast("Please enter a subscription name.", "warn");
-    if (!Number.isFinite(amount) || amount <= 0) return showToast("Enter a valid amount (> 0).", "warn");
-
-    const payload = {
-      id: editingId ?? uid(),
-      name,
-      amount: amount.toFixed(2),
-      currency: form.currency,
-      cycle: form.cycle,
-      nextDue: form.nextDue,
-      category: form.category,
-      notes: form.notes?.trim() ?? "",
-    };
-
-    setSubs((prev) => {
-      if (editingId) return prev.map((s) => (s.id === editingId ? { ...s, ...payload } : s));
-      return [payload, ...prev];
-    });
-
-    if (session?.user?.id) {
-      const { error } = await supabase
-        .from("subscriptions")
-        .upsert(uiToDb(payload, session.user.id), { onConflict: "id" });
-
-      if (error) showToast("Saved locally, but cloud save failed: " + error.message, "warn");
-      else await refreshFromDb();
-    }
-
-    resetForm();
-    showToast(editingId ? "Saved!" : "Added!", "ok");
-  }
-
-  function onEdit(sub) {
-    setEditingId(sub.id);
-    setForm({
-      name: sub.name,
-      amount: sub.amount,
-      currency: sub.currency,
-      cycle: sub.cycle,
-      nextDue: sub.nextDue,
-      category: sub.category || "Other",
-      notes: sub.notes || "",
-    });
-    window.location.hash = "#top";
-    showToast("Editing item…", "muted");
-  }
-
-  async function onDelete(id) {
-    if (!confirm("Delete this subscription?")) return;
-
-    setSubs((prev) => prev.filter((s) => s.id !== id));
-
-    if (session?.user?.id) {
-      const { error } = await supabase.from("subscriptions").delete().eq("id", id);
-      if (error) showToast("Cloud delete failed: " + error.message, "bad");
-      else await refreshFromDb();
-    }
-
-    showToast("Deleted.", "muted");
-  }
-
-  async function onMarkPaid(sub) {
-    const next = nextDueYMD(sub.nextDue, sub.cycle);
-
-    setSubs((prev) => prev.map((s) => (s.id === sub.id ? { ...s, nextDue: next } : s)));
-
-    if (session?.user?.id) {
-      const { error } = await supabase.from("subscriptions").update({ next_due: next }).eq("id", sub.id);
-      if (error) showToast("Cloud update failed: " + error.message, "bad");
-      else await refreshFromDb();
-    }
-
-    showToast("Marked paid → next due updated.", "ok");
-  }
-
-  function exportCSV() {
-    const csv = toCSV(subs);
-    downloadFile(`subtrack-${toYMD(new Date())}.csv`, csv, "text/csv;charset=utf-8");
-    showToast("Exported CSV.", "ok");
-  }
-
-  // ✅ MAGIC LINK SIGN IN (with cooldown)
-  async function signInMagicLink() {
-    const e = email.trim();
-    setAuthMsg("");
-
-    if (!e) {
-      showToast("Please enter your email first.", "warn");
-      return;
-    }
-
-    if (cooldown > 0) {
-      showToast(`Please wait ${cooldown}s before requesting another link.`, "muted");
-      return;
-    }
-
-    setAuthMsg("Sending magic link…");
-
-    const emailRedirectTo = new URL(import.meta.env.BASE_URL, window.location.origin).toString();
-
-    const { error } = await supabase.auth.signInWithOtp({
-      email: e,
-      options: { emailRedirectTo },
-    });
-
-    if (error) {
-      setAuthMsg(error.message);
-      showToast(error.message, "bad");
-
-      // If rate limited, enforce a longer cooldown
-      if (String(error.message || "").toLowerCase().includes("rate")) {
-        setCooldown(120);
-      }
-      return;
-    }
-
-    const msg = "✅ Magic link sent — check your email.";
-    setAuthMsg(msg);
-    showToast(msg, "ok");
-    setCooldown(60);
-    document.getElementById("signin")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
-  async function signOut() {
-    await supabase.auth.signOut();
-
-    setSubs([]);
-    localStorage.removeItem(STORAGE_KEY);
-
-    setEmail("");
-    setAuthMsg("");
-    setQuery("");
-    setFilterCat("All");
-    resetForm();
-
-    showToast("Signed out. Cleared local data.", "muted");
-  }
-
-  async function importLocalToCloud() {
-    if (!session?.user?.id) return showToast("Sign in first.", "warn");
-
-    if (!confirm("Import your current local subscriptions into your cloud account? (May create duplicates)"))
-      return;
-
-    const userId = session.user.id;
-    const rows = subs.map((s) => uiToDb(s, userId));
-
-    const { error } = await supabase.from("subscriptions").insert(rows);
-
-    if (error) showToast("Import failed: " + error.message, "bad");
-    else {
-      showToast("Imported to cloud!", "ok");
-      await refreshFromDb();
-    }
-  }
-
-  return (
-    <div className="page" id="top">
-      {toast ? <div className={`toast ${toast.tone}`}>{toast.text}</div> : null}
-
-      <header className="header">
-        <div className="nav">
-          <div className="brand">
-            <div className="logoDot" />
-            <div>
-              <div className="brandName">SubTrack</div>
-              <div className="brandSub">Login + Cloud Sync</div>
-            </div>
-          </div>
-
-          <div className="navRight">
-            <button
-              className="chipBtn ghost"
-              onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
-              title="Toggle theme"
-            >
-              {theme === "dark" ? "Light mode" : "Dark mode"}
-            </button>
-
-            <button className="chipBtn" onClick={exportCSV}>
-              Export CSV
-            </button>
-
-            {session ? (
-              <button className="chipBtn ghost" onClick={signOut}>
-                Sign out
-              </button>
-            ) : (
-              <a className="chipBtn ghost" href="#signin">
-                Sign in
-              </a>
-            )}
-          </div>
-        </div>
-      </header>
-
-      <main className="container">
-        <section className="hero">
-          <div className="pill">
-            {session ? "Signed in · Sync enabled" : "Signed out · Local data cleared"}
-          </div>
-
-          <h1>
-            Subscriptions, organized. <span className="accent">Synced everywhere.</span>
-          </h1>
-
-          <p className="sub">
-            Add memberships, track due dates, and estimate spend. Magic link login lets you open this on any PC.
-          </p>
-
-          <div className="stats">
-            <div className="stat">
-              <div className="statNum">{subs.length}</div>
-              <div className="statLabel">Items</div>
-            </div>
-            <div className="stat">
-              <div className="statNum">{totals.monthly.toFixed(2)}</div>
-              <div className="statLabel">Monthly estimate</div>
-            </div>
-            <div className="stat">
-              <div className="statNum">{totals.yearly.toFixed(2)}</div>
-              <div className="statLabel">Yearly estimate</div>
-            </div>
-          </div>
-        </section>
-
-        {!session ? (
-          <section className="card" id="signin" style={{ marginTop: 16 }}>
-            <div className="cardHead">
-              <h2>Sign in to sync</h2>
-            </div>
-
-            <div className="form">
-              <label>
-                Email
-                <input
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                />
-              </label>
-
-              <button
-                className="btn primary"
-                onClick={signInMagicLink}
-                type="button"
-                disabled={cooldown > 0}
-                title={cooldown > 0 ? "Please wait before requesting another link" : "Send magic link"}
-              >
-                {cooldown > 0 ? `Wait ${cooldown}s` : "Send magic link"}
-              </button>
-
-              {authMsg ? <p className="aboutText" style={{ margin: 0 }}>{authMsg}</p> : null}
-            </div>
-          </section>
-        ) : (
-          <section className="card" style={{ marginTop: 16 }}>
-            <div className="cardHead">
-              <h2>Sync tools</h2>
-              <button className="smallBtn" onClick={importLocalToCloud}>
-                Import local → cloud
-              </button>
-            </div>
-            <p className="aboutText">
-              You’re signed in as <b>{session.user.email}</b>. Your subscriptions are stored in Supabase and will appear on any device when you log in.
-              {loading ? " (Loading…)" : ""}
-            </p>
-          </section>
-        )}
-
-        <div className="grid2" style={{ marginTop: 16 }}>
-          {/* Add/Edit */}
-          <section className="card">
-            <div className="cardHead">
-              <h2>{editingId ? "Edit subscription" : "Add subscription"}</h2>
-              {editingId ? (
-                <button className="smallBtn ghost" onClick={resetForm}>
-                  Cancel
-                </button>
-              ) : null}
-            </div>
-
-            <form className="form" onSubmit={onSubmit}>
-              <label>
-                Name
-                <input
-                  value={form.name}
-                  onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                  placeholder="Netflix, Spotify, Gym..."
-                  required
-                />
-              </label>
-
-              <div className="row">
-                <label>
-                  Amount
-                  <input
-                    value={form.amount}
-                    onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))}
-                    placeholder="e.g. 12.99"
-                    inputMode="decimal"
-                    required
-                  />
-                </label>
-
-                <label>
-                  Currency
-                  <select
-                    value={form.currency}
-                    onChange={(e) => setForm((p) => ({ ...p, currency: e.target.value }))}
-                  >
-                    {CURRENCY_OPTIONS.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-
-              <div className="row">
-                <label>
-                  Billing cycle
-                  <select
-                    value={form.cycle}
-                    onChange={(e) => setForm((p) => ({ ...p, cycle: e.target.value }))}
-                  >
-                    {CYCLE_OPTIONS.map((c) => (
-                      <option key={c.value} value={c.value}>
-                        {c.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label>
-                  Next due date
-                  <input
-                    type="date"
-                    value={form.nextDue}
-                    onChange={(e) => setForm((p) => ({ ...p, nextDue: e.target.value }))}
-                    required
-                  />
-                </label>
-              </div>
-
-              <label>
-                Category
-                <select
-                  value={form.category}
-                  onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
-                >
-                  {CATEGORY_OPTIONS.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
-                Notes (optional)
-                <textarea
-                  value={form.notes}
-                  onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-                  placeholder="Trial ends, cancel link, etc."
-                  rows={3}
-                />
-              </label>
-
-              <button className="btn primary" type="submit">
-                {editingId ? "Save changes" : "Add subscription"}
-              </button>
-            </form>
-          </section>
-
-          {/* Upcoming */}
-          <section className="card">
-            <div className="cardHead">
-              <h2>Upcoming</h2>
-              <div className="filters">
-                <input
-                  className="search"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search name, category, notes…"
-                />
-                <select value={filterCat} onChange={(e) => setFilterCat(e.target.value)}>
-                  <option value="All">All</option>
-                  {CATEGORY_OPTIONS.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {filtered.length === 0 ? (
-              <div className="empty">
-                <div className="emptyTitle">No subscriptions yet</div>
-                <div className="emptyText">Add your first one — it will appear here sorted by due date.</div>
-              </div>
-            ) : (
-              <div className="list">
-                {filtered.map((s) => {
-                  const d = daysUntil(s.nextDue);
-                  const b = badgeForDue(d);
-
-                  return (
-                    <article className="item" key={s.id}>
-                      <div className="itemTop">
-                        <div>
-                          <div className="itemName">{s.name}</div>
-                          <div className="itemMeta">
-                            <span className={`badge ${b.tone}`}>{b.text}</span>
-                            <span className="dot" />
-                            <span className="metaText">{s.category || "—"}</span>
-                            <span className="dot" />
-                            <span className="metaText">
-                              {s.currency}
-                              {Number(s.amount).toFixed(2)} · {s.cycle}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="itemAmt">
-                          <div className="amtMain">
-                            {s.currency}
-                            {Number(s.amount).toFixed(2)}
-                          </div>
-                          <div className="amtSub">~{monthlyEquivalent(s.amount, s.cycle).toFixed(2)}/mo</div>
-                        </div>
-                      </div>
-
-                      <div className="itemBottom">
-                        <div className="dueLine">
-                          Next due: <span className="dueDate">{s.nextDue}</span>
-                          {s.notes ? <span className="note"> · {s.notes}</span> : null}
-                        </div>
-
-                        <div className="actions">
-                          <button className="smallBtn" type="button" onClick={() => onMarkPaid(s)}>
-                            Mark paid
-                          </button>
-                          <button className="smallBtn ghost" type="button" onClick={() => onEdit(s)}>
-                            Edit
-                          </button>
-                          <button className="smallBtn danger" type="button" onClick={() => onDelete(s.id)}>
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-        </div>
-
-        <footer className="footer">© {new Date().getFullYear()} Pratik Patel · SubTrack</footer>
-      </main>
-    </div>
-  );
+/* ---------- Responsive ---------- */
+@media (max-width: 920px){
+  .grid2{ grid-template-columns: 1fr; }
+  .itemAmt{ text-align: left; min-width: unset; }
+  .stats{ grid-template-columns: 1fr; }
+  .row{ grid-template-columns: 1fr; }
+  .filters{ width: 100%; }
+  .search{ width: 100%; }
 }
