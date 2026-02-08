@@ -390,12 +390,13 @@ export default function App() {
     const e = email.trim();
     if (!e) return;
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email: e,
-      options: {
-        emailRedirectTo: window.location.href,
-      },
-    });
+    const emailRedirectTo = new URL(import.meta.env.BASE_URL, window.location.origin).toString();
+
+await supabase.auth.signInWithOtp({
+  email: e,
+  options: { emailRedirectTo },
+});
+
 
     if (error) setAuthMsg(error.message);
     else setAuthMsg("✅ Check your email for the sign-in link.");
