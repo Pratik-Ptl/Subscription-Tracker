@@ -113,12 +113,23 @@ export default function Login({ theme, setTheme, enterGuest }) {
             ))}
           </ul>
 
-          {/* Decorative mini-card */}
-          <div className="relative rounded-2xl border p-4 card-in"
-            style={{ background: light ? "rgba(255,255,255,0.7)" : "linear-gradient(135deg, rgba(255,255,255,0.09), rgba(255,255,255,0.03))", borderColor: light ? "rgba(124,58,237,0.15)" : "rgba(255,255,255,0.12)", boxShadow: light ? "0 4px 16px rgba(124,58,237,0.1)" : "0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.10)", backdropFilter: "blur(16px)" }}>
-            <div className="text-xs font-semibold" style={{ opacity: 0.5 }}>Next due</div>
-            <div className="mt-1 text-lg font-extrabold">Netflix — $15.99</div>
-            <div className="mt-1 text-xs font-semibold" style={{ color: "#10b981" }}>in 3 days</div>
+          {/* Decorative mini-cards */}
+          <div className="relative flex flex-col gap-3">
+            {[
+              { name: "Streaming", price: "$15.99/mo", due: "in 3 days", color: "#7c3aed" },
+              { name: "Cloud Storage", price: "$2.99/mo", due: "in 8 days", color: "#22d3ee" },
+              { name: "Music", price: "$10.99/mo", due: "in 12 days", color: "#ec4899" },
+            ].map((s, i) => (
+              <div key={s.name} className="rounded-2xl border p-3.5 card-in flex items-center gap-3"
+                style={{ background: light ? "rgba(255,255,255,0.7)" : "linear-gradient(135deg, rgba(255,255,255,0.09), rgba(255,255,255,0.03))", borderColor: light ? "rgba(124,58,237,0.15)" : "rgba(255,255,255,0.12)", boxShadow: light ? "0 4px 16px rgba(124,58,237,0.1)" : "0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.10)", backdropFilter: "blur(16px)", animationDelay: `${i * 120}ms` }}>
+                <div className="h-9 w-9 rounded-xl flex-shrink-0" style={{ background: s.color, opacity: 0.8 }} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-bold">{s.name}</div>
+                  <div className="text-xs" style={{ opacity: 0.5 }}>{s.price}</div>
+                </div>
+                <div className="text-xs font-semibold" style={{ color: "#10b981" }}>{s.due}</div>
+              </div>
+            ))}
           </div>
         </aside>
 
