@@ -29,7 +29,7 @@ export default function Verified({ theme, setTheme }) {
       >
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-xl flex-shrink-0" style={{ background: "linear-gradient(135deg, #7c3aed, #22d3ee, #10b981)" }} />
+            <img src="/logo.svg" alt="SubTrack" className="h-8 w-8 rounded-xl flex-shrink-0" />
             <div className="leading-tight">
               <div className="text-sm font-extrabold tracking-tight">SubTrack</div>
               <div className="text-xs opacity-60">Email confirmed</div>

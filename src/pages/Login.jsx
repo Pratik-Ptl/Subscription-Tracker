@@ -77,7 +77,7 @@ export default function Login({ theme, setTheme, enterGuest }) {
       <header className="sticky top-0 z-40 border-b" style={{ borderColor: light ? "rgba(15,23,42,0.08)" : "rgba(255,255,255,0.08)", background: light ? "rgba(255,255,255,0.75)" : "rgba(2,6,23,0.55)", backdropFilter: "blur(20px)" }}>
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-xl flex-shrink-0" style={{ background: "linear-gradient(135deg, #7c3aed, #22d3ee, #10b981)" }} />
+            <img src="/logo.svg" alt="SubTrack" className="h-8 w-8 rounded-xl flex-shrink-0" />
             <span className="font-extrabold tracking-tight">SubTrack</span>
           </div>
           <button className="rounded-full border px-3 py-1.5 text-xs font-semibold transition hover:-translate-y-0.5"
@@ -98,7 +98,7 @@ export default function Login({ theme, setTheme, enterGuest }) {
           <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(60% 60% at 30% 40%, rgba(124,58,237,0.18), transparent), radial-gradient(40% 40% at 70% 70%, rgba(34,211,238,0.12), transparent)", filter: "blur(24px)" }} />
 
           <div className="relative">
-            <div className="h-14 w-14 rounded-2xl shadow-lg" style={{ background: "linear-gradient(135deg, #7c3aed, #22d3ee, #10b981)" }} />
+            <img src="/logo.svg" alt="SubTrack" className="h-14 w-14 rounded-2xl shadow-lg" />
             <div className="mt-5 text-3xl font-extrabold tracking-tight" style={{ color: light ? "#3b0764" : "white" }}>SubTrack</div>
             <div className="mt-2 text-base" style={{ color: light ? "rgba(59,7,100,0.65)" : "rgba(255,255,255,0.55)" }}>
               Every subscription, always in view.
@@ -122,7 +122,9 @@ export default function Login({ theme, setTheme, enterGuest }) {
             ].map((s, i) => (
               <div key={s.name} className="rounded-2xl border p-3.5 card-in flex items-center gap-3"
                 style={{ background: light ? "rgba(255,255,255,0.7)" : "linear-gradient(135deg, rgba(255,255,255,0.09), rgba(255,255,255,0.03))", borderColor: light ? "rgba(124,58,237,0.15)" : "rgba(255,255,255,0.12)", boxShadow: light ? "0 4px 16px rgba(124,58,237,0.1)" : "0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.10)", backdropFilter: "blur(16px)", animationDelay: `${i * 120}ms` }}>
-                <div className="h-9 w-9 rounded-xl flex-shrink-0" style={{ background: s.color, opacity: 0.8 }} />
+                <div className="h-9 w-9 rounded-xl flex-shrink-0 flex items-center justify-center text-sm font-extrabold text-white" style={{ background: s.color, opacity: 0.85 }}>
+                  {s.name[0]}
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-bold">{s.name}</div>
                   <div className="text-xs" style={{ opacity: 0.5 }}>{s.price}</div>
