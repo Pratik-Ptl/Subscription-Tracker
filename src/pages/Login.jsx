@@ -18,6 +18,18 @@ export default function Login({ theme, setTheme, enterGuest }) {
   const [toast, setToast] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
 
+  // Forgot password state
+  const [showForgot, setShowForgot] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotCooldown, setForgotCooldown] = useState(0);
+
+  // Unconfirmed email popup state
+  const [showConfirmPopup, setShowConfirmPopup] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [popupMsg, setPopupMsg] = useState("");
+
   const bg = useMemo(() => {
     return light
       ? "radial-gradient(900px 600px at 14% 12%, rgba(124,58,237,0.12), transparent 60%), radial-gradient(900px 600px at 86% 22%, rgba(34,211,238,0.10), transparent 58%), radial-gradient(900px 600px at 66% 88%, rgba(52,211,153,0.08), transparent 55%), linear-gradient(180deg, #f0f0ff, #ffffff)"
@@ -46,6 +58,19 @@ export default function Login({ theme, setTheme, enterGuest }) {
     if (confirmed) popToast("✅ Email confirmed! You can log in now.");
   }, [confirmed]);
 
+  // Cooldown timers
+  useEffect(() => {
+    if (forgotCooldown <= 0) return;
+    const t = setTimeout(() => setForgotCooldown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [forgotCooldown]);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setTimeout(() => setResendCooldown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendCooldown]);
+
   async function onLogin(e) {
     e.preventDefault();
     setErrorMsg("");
@@ -54,8 +79,43 @@ export default function Login({ theme, setTheme, enterGuest }) {
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email: e1, password });
     setLoading(false);
-    if (error) { setErrorMsg(error.message || "Login failed."); return; }
+    if (error) {
+      const msg = (error.message || "").toLowerCase();
+      if (msg.includes("not confirmed") || msg.includes("email not confirmed")) {
+        setShowConfirmPopup(true);
+        setPopupMsg("");
+        return;
+      }
+      setErrorMsg(error.message || "Login failed.");
+      return;
+    }
     nav("/app", { replace: true });
+  }
+
+  async function sendResetEmail() {
+    const target = forgotEmail.trim();
+    if (!target || forgotCooldown > 0) return;
+    setForgotLoading(true);
+    const redirectTo = `${window.location.origin}/login`;
+    const { error } = await supabase.auth.resetPasswordForEmail(target, { redirectTo });
+    setForgotLoading(false);
+    if (error) { popToast("Failed to send reset email"); return; }
+    popToast("Check your email for a reset link");
+    setForgotCooldown(60);
+    setShowForgot(false);
+  }
+
+  async function resendConfirmation() {
+    const target = email.trim().toLowerCase();
+    if (!target || resendCooldown > 0) return;
+    setResendLoading(true);
+    setPopupMsg("");
+    const emailRedirectTo = `${window.location.origin}/verified`;
+    const { error } = await supabase.auth.resend({ type: "signup", email: target, options: { emailRedirectTo } });
+    setResendLoading(false);
+    if (error) { setPopupMsg("Failed to resend. Try again later."); return; }
+    setPopupMsg("✅ Confirmation email sent! Check your inbox.");
+    setResendCooldown(60);
   }
 
   function continueAsGuest() {
@@ -172,6 +232,14 @@ export default function Login({ theme, setTheme, enterGuest }) {
                 </div>
               </label>
 
+              <div className="flex justify-end -mt-1">
+                <button type="button" className="text-xs font-semibold underline underline-offset-4 transition hover:opacity-80"
+                  style={{ color: "#7c3aed" }}
+                  onClick={() => { setForgotEmail(email); setShowForgot(true); }}>
+                  Forgot password?
+                </button>
+              </div>
+
               <button className="rounded-2xl border px-4 py-3 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:shadow-xl disabled:opacity-60"
                 style={{ background: "linear-gradient(90deg, #7c3aed, #6d28d9)", border: "none", boxShadow: "0 4px 16px rgba(124,58,237,0.4)" }}
                 type="submit" disabled={loading}>
@@ -203,6 +271,87 @@ export default function Login({ theme, setTheme, enterGuest }) {
           </div>
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      {showForgot && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(6px)" }}
+          onClick={e => { if (e.target === e.currentTarget) setShowForgot(false); }}>
+          <div className="w-full max-w-sm rounded-3xl border p-6 card-in"
+            style={{ background: light ? "rgba(255,255,255,0.95)" : "linear-gradient(135deg, rgba(15,23,42,0.95), rgba(15,23,42,0.88))", borderColor: gc.border, boxShadow: gc.shadow, backdropFilter: "blur(20px)" }}>
+            <div className="text-lg font-extrabold">Reset password</div>
+            <p className="mt-1.5 text-sm" style={{ opacity: 0.6 }}>We'll send a reset link to your email</p>
+
+            <input className="mt-4 w-full rounded-2xl border px-4 py-3 text-sm outline-none transition focus:ring-2"
+              style={{ ...inputStyle, focusRingColor: "rgba(124,58,237,0.4)" }}
+              value={forgotEmail} onChange={e => setForgotEmail(e.target.value)}
+              placeholder="you@example.com" autoComplete="email" />
+
+            <div className="mt-4 flex gap-2">
+              <button type="button" className="flex-1 rounded-2xl border px-4 py-3 text-sm font-semibold transition hover:-translate-y-0.5"
+                style={{ borderColor: gc.border, background: light ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.06)" }}
+                onClick={() => setShowForgot(false)}>
+                Cancel
+              </button>
+              <button type="button"
+                className="flex-1 rounded-2xl px-4 py-3 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:shadow-xl disabled:opacity-60"
+                style={{ background: "linear-gradient(90deg, #7c3aed, #6d28d9)", boxShadow: "0 4px 16px rgba(124,58,237,0.4)" }}
+                disabled={forgotLoading || forgotCooldown > 0 || !forgotEmail.trim()}
+                onClick={sendResetEmail}>
+                {forgotLoading ? "Sending…" : forgotCooldown > 0 ? `Wait ${forgotCooldown}s` : "Send reset link"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unconfirmed Email Popup */}
+      {showConfirmPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(6px)" }}
+          onClick={e => { if (e.target === e.currentTarget) setShowConfirmPopup(false); }}>
+          <div className="w-full max-w-sm rounded-3xl border p-6 card-in"
+            style={{ background: light ? "rgba(255,255,255,0.95)" : "linear-gradient(135deg, rgba(15,23,42,0.95), rgba(15,23,42,0.88))", borderColor: gc.border, boxShadow: gc.shadow, backdropFilter: "blur(20px)" }}>
+
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-2xl flex-shrink-0 flex items-center justify-center text-lg"
+                style={{ background: "linear-gradient(135deg, rgba(245,158,11,0.2), rgba(245,158,11,0.08))", border: "1px solid rgba(245,158,11,0.25)" }}>
+                ✉
+              </div>
+              <div>
+                <div className="text-base font-extrabold">Email not confirmed</div>
+                <p className="text-sm" style={{ opacity: 0.6 }}>Check your inbox or resend it</p>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-2xl border px-4 py-3 text-sm"
+              style={{ borderColor: "rgba(245,158,11,0.25)", background: light ? "rgba(255,251,235,0.9)" : "rgba(245,158,11,0.08)" }}>
+              Your account exists but the email <strong>{email.trim()}</strong> hasn't been verified yet. Check your inbox (and spam folder) or resend the confirmation.
+            </div>
+
+            {popupMsg && (
+              <div className="mt-3 rounded-2xl border px-4 py-3 text-sm"
+                style={{ borderColor: popupMsg.includes("✅") ? "rgba(16,185,129,0.25)" : "rgba(248,113,113,0.3)",
+                  background: popupMsg.includes("✅") ? (light ? "rgba(236,253,245,0.9)" : "rgba(16,185,129,0.10)") : (light ? "rgba(254,242,242,0.9)" : "rgba(244,63,94,0.12)") }}>
+                {popupMsg}
+              </div>
+            )}
+
+            <div className="mt-4 flex gap-2">
+              <button type="button" className="flex-1 rounded-2xl border px-4 py-3 text-sm font-semibold transition hover:-translate-y-0.5"
+                style={{ borderColor: gc.border, background: light ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.06)" }}
+                onClick={() => setShowConfirmPopup(false)}>
+                Close
+              </button>
+              <button type="button"
+                className="flex-1 rounded-2xl px-4 py-3 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:shadow-xl disabled:opacity-60"
+                style={{ background: "linear-gradient(90deg, #f59e0b, #d97706)", boxShadow: "0 4px 16px rgba(245,158,11,0.35)" }}
+                disabled={resendLoading || resendCooldown > 0}
+                onClick={resendConfirmation}>
+                {resendLoading ? "Sending…" : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend confirmation"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

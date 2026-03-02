@@ -8,7 +8,7 @@ import Login from "./pages/Login.jsx";
 import Signup from "./pages/Signup.jsx";
 import Tracker from "./pages/Tracker.jsx";
 import Profile from "./pages/Profile.jsx";
-
+import Verified from "./pages/Verified.jsx";
 
 import "./App.css";
 
@@ -127,6 +127,8 @@ export default function App() {
           </ProtectedRoute>
         }
       />
+
+      <Route path="/verified" element={<Verified theme={theme} setTheme={setTheme} />} />
 
       {/* fallback */}
       <Route path="*" element={<Navigate to="/login" replace />} />
