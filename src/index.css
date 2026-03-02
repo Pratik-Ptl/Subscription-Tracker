@@ -1,3 +1,15 @@
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; }
 body { margin: 0; }
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.card-in { animation: cardIn 0.3s cubic-bezier(.2,.8,.3,1) both; }
+
+.pill-row {
+  display: flex; gap: 8px; overflow-x: auto;
+  padding-bottom: 2px; scrollbar-width: none;
+}
+.pill-row::-webkit-scrollbar { display: none; }

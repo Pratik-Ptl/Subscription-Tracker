@@ -137,6 +137,18 @@ const CATEGORY_OPTIONS = [
     "Other",
 ];
 
+const CATEGORY_COLORS = {
+    "Streaming": "rgba(124,58,237,0.45)",
+    "Music": "rgba(236,72,153,0.45)",
+    "Cloud/Storage": "rgba(34,211,238,0.35)",
+    "Gym/Fitness": "rgba(52,211,153,0.4)",
+    "Utilities": "rgba(245,158,11,0.4)",
+    "Education": "rgba(59,130,246,0.4)",
+    "Software": "rgba(99,102,241,0.4)",
+    "Games": "rgba(249,115,22,0.4)",
+    "Other": "rgba(148,163,184,0.35)",
+};
+
 const CYCLE_OPTIONS = [
     { value: "monthly", label: "Monthly" },
     { value: "yearly", label: "Yearly" },
@@ -196,7 +208,6 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
     );
     const [importing, setImporting] = useState(false);
 
-
     // prevent import twice
     const importRanRef = useRef(false);
 
@@ -214,7 +225,7 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
     const bg = useMemo(() => {
         return light
             ? "radial-gradient(900px 600px at 14% 12%, rgba(124,58,237,0.10), transparent 60%), radial-gradient(900px 600px at 86% 22%, rgba(34,211,238,0.08), transparent 58%), radial-gradient(900px 600px at 66% 88%, rgba(52,211,153,0.06), transparent 55%), linear-gradient(180deg, #f6f7ff, #ffffff)"
-            : "radial-gradient(900px 600px at 14% 12%, rgba(124,58,237,0.18), transparent 60%), radial-gradient(900px 600px at 86% 22%, rgba(34,211,238,0.12), transparent 58%), radial-gradient(900px 600px at 66% 88%, rgba(52,211,153,0.09), transparent 55%), linear-gradient(180deg, #020617, #0b1220)";
+            : "radial-gradient(900px 600px at 14% 12%, rgba(124,58,237,0.22), transparent 60%), radial-gradient(900px 600px at 86% 22%, rgba(34,211,238,0.15), transparent 58%), radial-gradient(900px 600px at 66% 88%, rgba(52,211,153,0.12), transparent 55%), linear-gradient(180deg, #020617, #0b1220)";
     }, [light]);
 
     // Profile (only if logged in)
@@ -232,6 +243,7 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
     const [query, setQuery] = useState("");
     const [filterCat, setFilterCat] = useState("All");
     const [editingId, setEditingId] = useState(null);
+    const [showForm, setShowForm] = useState(false);
     const [form, setForm] = useState({
         name: "",
         amount: "",
@@ -266,6 +278,7 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
             notes: "",
         });
         setEditingId(null);
+        setShowForm(false);
     }
 
     // Persist guest subs (sessionStorage)
@@ -315,49 +328,49 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
 
     // ✅ Auto-import guest data after login (if pending)
     useEffect(() => {
-  if (!session?.user?.id) return;
+        if (!session?.user?.id) return;
 
-  (async () => {
-    const shouldImport = localStorage.getItem(GUEST_PENDING_IMPORT_KEY) === "1";
-    if (!shouldImport) return;
+        (async () => {
+            const shouldImport = localStorage.getItem(GUEST_PENDING_IMPORT_KEY) === "1";
+            if (!shouldImport) return;
 
-    setImporting(true);
+            setImporting(true);
 
-    const exported = safeParse(localStorage.getItem(GUEST_EXPORT_KEY), []);
-    if (!Array.isArray(exported) || exported.length === 0) {
-      localStorage.removeItem(GUEST_PENDING_IMPORT_KEY);
-      localStorage.removeItem(GUEST_EXPORT_KEY);
-      setImporting(false);
-      return;
-    }
+            const exported = safeParse(localStorage.getItem(GUEST_EXPORT_KEY), []);
+            if (!Array.isArray(exported) || exported.length === 0) {
+                localStorage.removeItem(GUEST_PENDING_IMPORT_KEY);
+                localStorage.removeItem(GUEST_EXPORT_KEY);
+                setImporting(false);
+                return;
+            }
 
-    try {
-      const userId = session.user.id;
-      const rows = exported.map((s) => uiToDb(s, userId));
+            try {
+                const userId = session.user.id;
+                const rows = exported.map((s) => uiToDb(s, userId));
 
-      const { error } = await supabase
-        .from("subscriptions")
-        .upsert(rows, { onConflict: "id" });
+                const { error } = await supabase
+                    .from("subscriptions")
+                    .upsert(rows, { onConflict: "id" });
 
-      if (error) {
-        showToast("Import failed: " + error.message, "bad");
-        setImporting(false);
-        return;
-      }
+                if (error) {
+                    showToast("Import failed: " + error.message, "bad");
+                    setImporting(false);
+                    return;
+                }
 
-      localStorage.removeItem(GUEST_PENDING_IMPORT_KEY);
-      localStorage.removeItem(GUEST_EXPORT_KEY);
-      try { sessionStorage.removeItem(GUEST_SESSION_KEY); } catch {}
+                localStorage.removeItem(GUEST_PENDING_IMPORT_KEY);
+                localStorage.removeItem(GUEST_EXPORT_KEY);
+                try { sessionStorage.removeItem(GUEST_SESSION_KEY); } catch {}
 
-      showToast("✅ Imported your guest data into your account!", "ok");
-      await refreshFromDb();
-    } catch {
-      showToast("Import failed.", "bad");
-    } finally {
-      setImporting(false);
-    }
-  })();
-}, [session?.user?.id]);
+                showToast("✅ Imported your guest data into your account!", "ok");
+                await refreshFromDb();
+            } catch {
+                showToast("Import failed.", "bad");
+            } finally {
+                setImporting(false);
+            }
+        })();
+    }, [session?.user?.id]);
 
 
     const filtered = useMemo(() => {
@@ -384,6 +397,19 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
             yearly += yearlyEquivalent(s.amount, s.cycle);
         }
         return { monthly, yearly };
+    }, [subs]);
+
+    const nextDueDays = useMemo(() => {
+        if (!subs.length) return "—";
+        const min = Math.min(...subs.map((s) => daysUntil(s.nextDue)));
+        return min < 0 ? "Overdue" : min;
+    }, [subs]);
+
+    const topCurrency = useMemo(() => {
+        if (!subs.length) return "$";
+        const counts = {};
+        for (const s of subs) counts[s.currency] = (counts[s.currency] || 0) + 1;
+        return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
     }, [subs]);
 
     async function onSubmit(e) {
@@ -436,8 +462,7 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
             category: sub.category || "Other",
             notes: sub.notes || "",
         });
-        showToast("Editing…", "muted");
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        setShowForm(true);
     }
 
     async function onDelete(id) {
@@ -480,7 +505,7 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
         nav("/login", { replace: true });
     }
 
-    // ✅ Guest -> login/signup with “save my data”
+    // ✅ Guest -> login/signup with "save my data"
     function goAuth(path) {
         localStorage.setItem(GUEST_EXPORT_KEY, JSON.stringify(subs));
         localStorage.setItem(GUEST_PENDING_IMPORT_KEY, "1");
@@ -496,12 +521,61 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
                 ? "Guest"
                 : "—";
 
-    const avatarGlyph =
-        session && profile
-            ? (profile.first_name?.[0] || session.user.email?.[0] || "U").toUpperCase()
-            : isGuest
-                ? "G"
-                : "U";
+    const glassCard = {
+        borderColor: light ? "rgba(15,23,42,0.10)" : "rgba(255,255,255,0.12)",
+        background: light ? "rgba(255,255,255,0.90)" : "linear-gradient(135deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.03) 100%)",
+        boxShadow: light ? "0 8px 32px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,0.9)" : "0 8px 32px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.12)",
+        backdropFilter: "blur(20px)",
+    };
+
+    const inputStyle = {
+        borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
+        background: light ? "rgba(255,255,255,0.9)" : "rgba(2,6,23,0.35)",
+        color: light ? "#0b1220" : "white",
+    };
+
+    // Inner components
+    function StatCard({ label, value, unit, glow, icon }) {
+        return (
+            <div className="rounded-3xl border p-4 shadow-xl card-in" style={{
+                borderColor: light ? "rgba(15,23,42,0.10)" : "rgba(255,255,255,0.12)",
+                background: light ? "rgba(255,255,255,0.82)" : "linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03))",
+                boxShadow: light ? "0 8px 32px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,0.9)" : `0 8px 32px rgba(0,0,0,0.28), 0 0 40px -15px ${glow}, inset 0 1px 0 rgba(255,255,255,0.12)`,
+                backdropFilter: "blur(20px)",
+            }}>
+                <div className="flex items-center justify-between">
+                    <div className="text-xs font-semibold opacity-60">{label}</div>
+                    <div style={{ fontSize: 16, opacity: 0.45 }}>{icon}</div>
+                </div>
+                <div className="mt-2 text-2xl font-extrabold tracking-tight">
+                    {unit && unit !== "" && unit !== "day" && unit !== "days" && unit !== "Overdue"
+                        ? <span className="text-base font-semibold opacity-60 mr-0.5">{unit}</span>
+                        : null}
+                    {value}
+                    {(unit === "day" || unit === "days")
+                        ? <span className="text-sm font-semibold opacity-60 ml-1">{unit}</span>
+                        : null}
+                </div>
+            </div>
+        );
+    }
+
+    function ActionBtn({ onClick, children, danger }) {
+        return (
+            <button type="button" onClick={onClick}
+                className="rounded-xl border px-2.5 py-1.5 text-xs font-semibold transition hover:-translate-y-0.5"
+                style={{
+                    borderColor: danger
+                        ? (light ? "rgba(239,68,68,0.18)" : "rgba(248,113,113,0.22)")
+                        : (light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)"),
+                    background: danger
+                        ? (light ? "rgba(254,242,242,0.9)" : "rgba(244,63,94,0.10)")
+                        : (light ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.06)"),
+                }}>
+                {children}
+            </button>
+        );
+    }
 
     return (
         <div className="min-h-screen" style={{ backgroundImage: bg, color: light ? "#0b1220" : "white" }}>
@@ -510,7 +584,8 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
                     className="fixed top-4 left-1/2 z-50 -translate-x-1/2 rounded-2xl border px-4 py-3 text-sm shadow-2xl backdrop-blur"
                     style={{
                         borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
-                        background: light ? "rgba(255,255,255,0.88)" : "rgba(255,255,255,0.10)",
+                        background: light ? "rgba(255,255,255,0.95)" : "rgba(15,23,42,0.85)",
+                        backdropFilter: "blur(20px)",
                     }}
                 >
                     {toast.text}
@@ -519,26 +594,27 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
 
             {/* Header */}
             <header
-                className="sticky top-0 z-40 border-b backdrop-blur"
+                className="sticky top-0 z-40 border-b"
                 style={{
-                    borderColor: light ? "rgba(15,23,42,0.10)" : "rgba(255,255,255,0.10)",
-                    background: light ? "rgba(255,255,255,0.78)" : "rgba(2,6,23,0.45)",
+                    borderColor: light ? "rgba(15,23,42,0.08)" : "rgba(255,255,255,0.08)",
+                    background: light ? "rgba(255,255,255,0.75)" : "rgba(2,6,23,0.55)",
+                    backdropFilter: "blur(20px)",
                 }}
             >
-                <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4">
+                <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
                     <div className="flex items-center gap-3">
-                        <div className="h-3 w-3 rounded-full bg-gradient-to-br from-violet-500 via-cyan-400 to-emerald-400 shadow-[0_0_0_8px_rgba(124,58,237,0.12)]" />
+                        <div className="h-8 w-8 rounded-xl flex-shrink-0" style={{ background: "linear-gradient(135deg, #7c3aed, #22d3ee, #10b981)" }} />
                         <div className="leading-tight">
                             <div className="text-sm font-extrabold tracking-tight">SubTrack</div>
-                            <div className="text-xs opacity-70">
-                                {session ? "Signed in · Cloud sync" : isGuest ? "Guest mode" : "—"}
+                            <div className="text-xs opacity-60">
+                                {session ? "Cloud sync" : isGuest ? "Guest mode" : "—"}
                             </div>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-2">
                         <button
-                            className="rounded-full border px-3 py-2 text-xs font-semibold transition hover:-translate-y-0.5 hover:shadow-lg"
+                            className="rounded-full border px-3 py-1.5 text-xs font-semibold transition hover:-translate-y-0.5"
                             style={{
                                 borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
                                 background: light ? "white" : "rgba(255,255,255,0.06)",
@@ -546,11 +622,11 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
                             onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
                             type="button"
                         >
-                            {theme === "dark" ? "Light mode" : "Dark mode"}
+                            {theme === "dark" ? "☀ Light" : "☾ Dark"}
                         </button>
 
                         <button
-                            className="rounded-full border px-3 py-2 text-xs font-semibold transition hover:-translate-y-0.5 hover:shadow-lg"
+                            className="hidden sm:block rounded-full border px-3 py-1.5 text-xs font-semibold transition hover:-translate-y-0.5"
                             style={{
                                 borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
                                 background: light ? "white" : "rgba(255,255,255,0.06)",
@@ -566,55 +642,44 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
                             <button
                                 type="button"
                                 onClick={() => setMenuOpen((s) => !s)}
-                                className="flex items-center gap-2 rounded-full border px-2.5 py-2 text-xs font-semibold transition hover:-translate-y-0.5 hover:shadow-lg"
+                                className="flex items-center gap-2 rounded-full border px-2.5 py-1.5 text-xs font-semibold transition hover:-translate-y-0.5"
                                 style={{
                                     borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
                                     background: light ? "white" : "rgba(255,255,255,0.06)",
                                 }}
-                                title={isGuest ? "Guest (click for login/signup)" : "Profile"}
                             >
-                                <div className="relative h-8 w-8 overflow-hidden rounded-full bg-gradient-to-br from-violet-500 via-cyan-400 to-emerald-400">
+                                <div className="relative h-7 w-7 overflow-hidden rounded-full" style={{ background: "linear-gradient(135deg, #7c3aed, #22d3ee, #10b981)" }}>
                                     {session && profile?.avatar_url ? (
                                         <img src={profile.avatar_url} alt="Avatar" className="h-full w-full object-cover" />
                                     ) : (
-                                        <div className="grid h-full w-full place-items-center text-sm font-extrabold text-white">
+                                        <div className="grid h-full w-full place-items-center text-xs font-extrabold text-white">
                                             {isGuest ? "G" : genderEmoji(profile?.gender)}
                                         </div>
                                     )}
                                 </div>
-
                                 <span className="hidden sm:inline">{displayName}</span>
                             </button>
 
-                            {/* Hover helper (only shows when hovering the profile button) */}
-                            <div
-                                className="pointer-events-none absolute right-0 mt-2 whitespace-nowrap rounded-xl border px-3 py-1.5 text-xs font-semibold opacity-0 shadow-xl backdrop-blur transition group-hover:opacity-100"
-                                style={{
-                                    borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
-                                    background: light ? "rgba(255,255,255,0.92)" : "rgba(2,6,23,0.75)",
-                                }}
-                            >
-                                {isGuest ? "Log in / Sign up to save" : "See profile"}
-                            </div>
-
                             {menuOpen ? (
                                 <div
-                                    className="absolute right-0 mt-2 w-64 rounded-2xl border p-3 text-sm shadow-2xl backdrop-blur"
+                                    className="absolute right-0 mt-2 w-64 rounded-2xl border p-3 text-sm shadow-2xl"
                                     style={{
                                         borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
-                                        background: light ? "rgba(255,255,255,0.92)" : "rgba(2,6,23,0.75)",
+                                        background: light ? "rgba(255,255,255,0.95)" : "rgba(2,6,23,0.88)",
+                                        backdropFilter: "blur(20px)",
+                                        zIndex: 60,
                                     }}
                                 >
                                     {isGuest ? (
                                         <>
                                             <div className="font-extrabold">Guest</div>
                                             <div className="mt-1 opacity-80">
-                                                Want to save your data? Log in or sign up — we’ll import what you added.
+                                                Want to save your data? Log in or sign up — we'll import what you added.
                                             </div>
 
                                             <div className="mt-3 grid gap-2">
                                                 <button
-                                                    className="rounded-xl border px-3 py-2 text-sm font-semibold transition hover:-translate-y-0.5 hover:shadow-lg"
+                                                    className="rounded-xl border px-3 py-2 text-sm font-semibold transition hover:-translate-y-0.5"
                                                     style={{
                                                         borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
                                                         background: light ? "white" : "rgba(255,255,255,0.06)",
@@ -626,11 +691,10 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
                                                 </button>
 
                                                 <button
-                                                    className="rounded-xl border px-3 py-2 text-sm font-semibold transition hover:-translate-y-0.5 hover:shadow-lg"
+                                                    className="rounded-xl border px-3 py-2 text-sm font-semibold transition hover:-translate-y-0.5"
                                                     style={{
-                                                        borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
-                                                        background:
-                                                            "linear-gradient(90deg, rgba(124,58,237,0.18), rgba(34,211,238,0.14), rgba(52,211,153,0.12))",
+                                                        borderColor: "rgba(124,58,237,0.3)",
+                                                        background: "linear-gradient(90deg, rgba(124,58,237,0.18), rgba(34,211,238,0.14), rgba(52,211,153,0.12))",
                                                     }}
                                                     type="button"
                                                     onClick={() => goAuth("/signup")}
@@ -662,7 +726,7 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
 
                                             <div className="mt-3 grid gap-2">
                                                 <button
-                                                    className="rounded-xl border px-3 py-2 text-sm font-semibold transition hover:-translate-y-0.5 hover:shadow-lg"
+                                                    className="rounded-xl border px-3 py-2 text-sm font-semibold transition hover:-translate-y-0.5"
                                                     style={{
                                                         borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
                                                         background: light ? "white" : "rgba(255,255,255,0.06)",
@@ -677,7 +741,7 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
                                                 </button>
 
                                                 <button
-                                                    className="rounded-xl border px-3 py-2 text-sm font-semibold transition hover:-translate-y-0.5 hover:shadow-lg"
+                                                    className="rounded-xl border px-3 py-2 text-sm font-semibold transition hover:-translate-y-0.5"
                                                     style={{
                                                         borderColor: light ? "rgba(239,68,68,0.18)" : "rgba(248,113,113,0.22)",
                                                         background: light ? "rgba(254,242,242,0.9)" : "rgba(244,63,94,0.12)",
@@ -693,7 +757,6 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
                                 </div>
                             ) : null}
                         </div>
-
                     </div>
                 </div>
             </header>
@@ -710,11 +773,11 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
                     >
                         <div className="font-extrabold">Guest mode</div>
                         <div className="mt-1 opacity-85">
-                            Your data is stored only in this browser tab. If you close the tab, it’s gone.
+                            Your data is stored only in this browser tab. If you close the tab, it's gone.
                         </div>
                         <div className="mt-3 flex flex-wrap gap-2">
                             <button
-                                className="rounded-xl border px-3 py-2 text-sm font-semibold transition hover:-translate-y-0.5 hover:shadow-lg"
+                                className="rounded-xl border px-3 py-2 text-sm font-semibold transition hover:-translate-y-0.5"
                                 style={{
                                     borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
                                     background: light ? "white" : "rgba(255,255,255,0.06)",
@@ -725,11 +788,10 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
                                 Log in to save
                             </button>
                             <button
-                                className="rounded-xl border px-3 py-2 text-sm font-semibold transition hover:-translate-y-0.5 hover:shadow-lg"
+                                className="rounded-xl border px-3 py-2 text-sm font-semibold transition hover:-translate-y-0.5"
                                 style={{
-                                    borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
-                                    background:
-                                        "linear-gradient(90deg, rgba(124,58,237,0.18), rgba(34,211,238,0.14), rgba(52,211,153,0.12))",
+                                    borderColor: "rgba(124,58,237,0.3)",
+                                    background: "linear-gradient(90deg, rgba(124,58,237,0.18), rgba(34,211,238,0.14), rgba(52,211,153,0.12))",
                                 }}
                                 type="button"
                                 onClick={() => goAuth("/signup")}
@@ -740,277 +802,131 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
                     </div>
                 ) : null}
 
-                {/* Stats */}
-                <section className="grid gap-3 sm:grid-cols-3">
-                    <div
-                        className="rounded-3xl border p-4 shadow-xl"
-                        style={{
-                            borderColor: light ? "rgba(15,23,42,0.10)" : "rgba(255,255,255,0.10)",
-                            background: light ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.06)",
-                        }}
-                    >
-                        <div className="text-xs font-semibold opacity-70">Items</div>
-                        <div className="mt-1 text-2xl font-extrabold tracking-tight">{subs.length}</div>
-                    </div>
-
-                    <div
-                        className="rounded-3xl border p-4 shadow-xl"
-                        style={{
-                            borderColor: light ? "rgba(15,23,42,0.10)" : "rgba(255,255,255,0.10)",
-                            background: light ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.06)",
-                        }}
-                    >
-                        <div className="text-xs font-semibold opacity-70">Monthly estimate</div>
-                        <div className="mt-1 text-2xl font-extrabold tracking-tight">{totals.monthly.toFixed(2)}</div>
-                    </div>
-
-                    <div
-                        className="rounded-3xl border p-4 shadow-xl"
-                        style={{
-                            borderColor: light ? "rgba(15,23,42,0.10)" : "rgba(255,255,255,0.10)",
-                            background: light ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.06)",
-                        }}
-                    >
-                        <div className="text-xs font-semibold opacity-70">Yearly estimate</div>
-                        <div className="mt-1 text-2xl font-extrabold tracking-tight">{totals.yearly.toFixed(2)}</div>
-                    </div>
+                {/* Stats — 4 cards with colored glows */}
+                <section className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+                    <StatCard
+                        label="Subscriptions"
+                        value={subs.length}
+                        unit=""
+                        glow="rgba(124,58,237,0.35)"
+                        icon="◈"
+                    />
+                    <StatCard
+                        label="Per month"
+                        value={totals.monthly.toFixed(2)}
+                        unit={topCurrency}
+                        glow="rgba(34,211,238,0.3)"
+                        icon="↻"
+                    />
+                    <StatCard
+                        label="Per year"
+                        value={totals.yearly.toFixed(2)}
+                        unit={topCurrency}
+                        glow="rgba(52,211,153,0.3)"
+                        icon="◎"
+                    />
+                    <StatCard
+                        label="Next due"
+                        value={nextDueDays}
+                        unit={typeof nextDueDays === "number" ? (nextDueDays === 1 ? "day" : "days") : ""}
+                        glow="rgba(245,158,11,0.35)"
+                        icon="◷"
+                    />
                 </section>
 
-                {/* Main grid */}
-                <section className="mt-5 grid items-start gap-4 lg:grid-cols-[1fr_1.4fr]">
-                    {/* Add/Edit */}
-                    <div
-                        className="self-start rounded-3xl border p-5 shadow-2xl"
-                        style={{
-                            borderColor: light ? "rgba(15,23,42,0.10)" : "rgba(255,255,255,0.10)",
-                            background: light ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.06)",
-                        }}
-                    >
-                        <div className="flex items-center justify-between gap-2">
-                            <h2 className="text-lg font-extrabold tracking-tight">
-                                {editingId ? "Edit subscription" : "Add subscription"}
-                            </h2>
-                            {editingId ? (
+                {/* Subscription list */}
+                <section className="mt-5 rounded-3xl border shadow-2xl" style={glassCard}>
+                    <div className="p-5 pb-0">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <h2 className="text-lg font-extrabold tracking-tight">Upcoming</h2>
+                            <div className="flex items-center gap-2">
                                 <button
-                                    className="rounded-full border px-3 py-2 text-xs font-semibold transition hover:-translate-y-0.5 hover:shadow-lg"
-                                    style={{
-                                        borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
-                                        background: light ? "white" : "rgba(255,255,255,0.06)",
-                                    }}
-                                    onClick={resetForm}
                                     type="button"
+                                    onClick={() => { resetForm(); setShowForm(true); }}
+                                    className="rounded-2xl border px-4 py-2 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:shadow-xl"
+                                    style={{ background: "linear-gradient(90deg, #7c3aed, #6d28d9)", border: "none", boxShadow: "0 4px 12px rgba(124,58,237,0.4)" }}
                                 >
-                                    Cancel
+                                    + Add
                                 </button>
-                            ) : null}
+                            </div>
                         </div>
 
-                        <form className="mt-4 grid gap-3" onSubmit={onSubmit}>
-                            <label className="grid gap-2 text-xs font-semibold opacity-70">
-                                Name
-                                <input
-                                    className="w-full rounded-2xl border px-4 py-3 text-sm outline-none transition focus:ring-4"
+                        {/* Search + category pills */}
+                        <div className="mt-3">
+                            <input
+                                className="w-full rounded-2xl border px-4 py-2.5 text-sm outline-none transition"
+                                style={inputStyle}
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                placeholder="Search name, category, notes…"
+                            />
+                        </div>
+
+                        <div className="pill-row mt-3 pb-4" style={{ borderBottom: `1px solid ${light ? "rgba(15,23,42,0.08)" : "rgba(255,255,255,0.07)"}` }}>
+                            {["All", ...CATEGORY_OPTIONS].map((cat) => (
+                                <button
+                                    key={cat}
+                                    type="button"
+                                    onClick={() => setFilterCat(cat)}
+                                    className="shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition"
                                     style={{
-                                        borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
-                                        background: light ? "white" : "rgba(2,6,23,0.25)",
+                                        borderColor: filterCat === cat
+                                            ? "rgba(124,58,237,0.6)"
+                                            : (light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)"),
+                                        background: filterCat === cat
+                                            ? "linear-gradient(90deg, rgba(124,58,237,0.25), rgba(34,211,238,0.18))"
+                                            : (light ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.04)"),
+                                        color: filterCat === cat ? (light ? "#4c1d95" : "white") : undefined,
                                     }}
-                                    value={form.name}
-                                    onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                                    placeholder="Netflix, Spotify, Gym…"
-                                    required
-                                />
-                            </label>
-
-                            <div className="grid gap-3 sm:grid-cols-2">
-                                <label className="grid gap-2 text-xs font-semibold opacity-70">
-                                    Amount
-                                    <input
-                                        className="w-full rounded-2xl border px-4 py-3 text-sm outline-none transition focus:ring-4"
-                                        style={{
-                                            borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
-                                            background: light ? "white" : "rgba(2,6,23,0.25)",
-                                        }}
-                                        value={form.amount}
-                                        onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))}
-                                        placeholder="e.g. 12.99"
-                                        inputMode="decimal"
-                                        required
-                                    />
-                                </label>
-
-                                <label className="grid gap-2 text-xs font-semibold opacity-70">
-                                    Currency
-                                    <select
-                                        className="w-full rounded-2xl border px-4 py-3 text-sm outline-none transition focus:ring-4"
-                                        style={{
-                                            borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
-                                            background: light ? "white" : "rgba(2,6,23,0.25)",
-                                        }}
-                                        value={form.currency}
-                                        onChange={(e) => setForm((p) => ({ ...p, currency: e.target.value }))}
-                                    >
-                                        {CURRENCY_OPTIONS.map((c) => (
-                                            <option key={c} value={c}>
-                                                {c}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </label>
-                            </div>
-
-                            <div className="grid gap-3 sm:grid-cols-2">
-                                <label className="grid gap-2 text-xs font-semibold opacity-70">
-                                    Billing cycle
-                                    <select
-                                        className="w-full rounded-2xl border px-4 py-3 text-sm outline-none transition focus:ring-4"
-                                        style={{
-                                            borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
-                                            background: light ? "white" : "rgba(2,6,23,0.25)",
-                                        }}
-                                        value={form.cycle}
-                                        onChange={(e) => setForm((p) => ({ ...p, cycle: e.target.value }))}
-                                    >
-                                        {CYCLE_OPTIONS.map((c) => (
-                                            <option key={c.value} value={c.value}>
-                                                {c.label}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </label>
-
-                                <label className="grid gap-2 text-xs font-semibold opacity-70">
-                                    Next due date
-                                    <input
-                                        type="date"
-                                        className="w-full rounded-2xl border px-4 py-3 text-sm outline-none transition focus:ring-4"
-                                        style={{
-                                            borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
-                                            background: light ? "white" : "rgba(2,6,23,0.25)",
-                                        }}
-                                        value={form.nextDue}
-                                        onChange={(e) => setForm((p) => ({ ...p, nextDue: e.target.value }))}
-                                        required
-                                    />
-                                </label>
-                            </div>
-
-                            <label className="grid gap-2 text-xs font-semibold opacity-70">
-                                Category
-                                <select
-                                    className="w-full rounded-2xl border px-4 py-3 text-sm outline-none transition focus:ring-4"
-                                    style={{
-                                        borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
-                                        background: light ? "white" : "rgba(2,6,23,0.25)",
-                                    }}
-                                    value={form.category}
-                                    onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
                                 >
-                                    {CATEGORY_OPTIONS.map((c) => (
-                                        <option key={c} value={c}>
-                                            {c}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
-
-                            <label className="grid gap-2 text-xs font-semibold opacity-70">
-                                Notes (optional)
-                                <textarea
-                                    className="w-full rounded-2xl border px-4 py-3 text-sm outline-none transition focus:ring-4"
-                                    style={{
-                                        borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
-                                        background: light ? "white" : "rgba(2,6,23,0.25)",
-                                    }}
-                                    value={form.notes}
-                                    onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-                                    placeholder="Trial ends, cancel link, etc."
-                                    rows={3}
-                                />
-                            </label>
-
-                            <button
-                                className="rounded-2xl border px-4 py-3 text-sm font-semibold transition hover:-translate-y-0.5 hover:shadow-xl"
-                                style={{
-                                    borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
-                                    background:
-                                        "linear-gradient(90deg, rgba(124,58,237,0.18), rgba(34,211,238,0.14), rgba(52,211,153,0.12))",
-                                }}
-                                type="submit"
-                            >
-                                {editingId ? "Save changes" : "Add subscription"}
-                            </button>
-                        </form>
+                                    {cat}
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
-                    {/* List */}
-                    <div
-                        className="rounded-3xl border p-5 shadow-2xl"
-                        style={{
-                            borderColor: light ? "rgba(15,23,42,0.10)" : "rgba(255,255,255,0.10)",
-                            background: light ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.06)",
-                        }}
-                    >
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <h2 className="text-lg font-extrabold tracking-tight">Upcoming</h2>
-
-                            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-                                <input
-                                    className="w-full rounded-2xl border px-4 py-3 text-sm outline-none transition focus:ring-4 sm:w-[320px]"
-                                    style={{
-                                        borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
-                                        background: light ? "white" : "rgba(2,6,23,0.25)",
-                                    }}
-                                    value={query}
-                                    onChange={(e) => setQuery(e.target.value)}
-                                    placeholder="Search name, category, notes…"
-                                />
-                                <select
-                                    className="w-full rounded-2xl border px-4 py-3 text-sm outline-none transition focus:ring-4 sm:w-[160px]"
-                                    style={{
-                                        borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
-                                        background: light ? "white" : "rgba(2,6,23,0.25)",
-                                    }}
-                                    value={filterCat}
-                                    onChange={(e) => setFilterCat(e.target.value)}
-                                >
-                                    <option value="All">All</option>
-                                    {CATEGORY_OPTIONS.map((c) => (
-                                        <option key={c} value={c}>
-                                            {c}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-
-                        {loading ? <div className="mt-4 text-sm opacity-75">Loading…</div> : null}
+                    <div className="p-5 pt-4">
+                        {loading ? <div className="text-sm opacity-75">Loading…</div> : null}
 
                         {filtered.length === 0 ? (
-                            <div className="mt-4 rounded-3xl border border-dashed p-5 opacity-85">
-                                <div className="font-extrabold">No subscriptions yet</div>
-                                <div className="mt-1 text-sm opacity-80">Add your first one — it will appear here by due date.</div>
+                            <div className="rounded-3xl border border-dashed p-8 text-center"
+                                style={{ borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)" }}>
+                                <div className="text-2xl opacity-40">◈</div>
+                                <div className="mt-2 font-extrabold">No subscriptions yet</div>
+                                <div className="mt-1 text-sm opacity-70">Tap + Add to track your first subscription.</div>
                             </div>
                         ) : (
-                            <div className="mt-4 grid gap-3">
+                            <div className="grid gap-3">
                                 {filtered.map((s) => {
                                     const d = daysUntil(s.nextDue);
                                     const b = badgeForDue(d);
+
+                                    const urgencyBorder = d < 0
+                                        ? "rgba(244,63,94,0.7)"
+                                        : d <= 7
+                                            ? "rgba(245,158,11,0.7)"
+                                            : "rgba(52,211,153,0.35)";
+
+                                    const avatarBg = CATEGORY_COLORS[s.category] || "rgba(124,58,237,0.35)";
 
                                     const badgeStyle =
                                         b.tone === "bad"
                                             ? {
                                                 border: light ? "1px solid rgba(239,68,68,0.20)" : "1px solid rgba(248,113,113,0.25)",
                                                 background: light ? "rgba(254,242,242,0.9)" : "rgba(244,63,94,0.12)",
+                                                color: light ? "rgb(153,27,27)" : "rgba(255,255,255,0.9)",
                                             }
                                             : b.tone === "warn"
                                                 ? {
                                                     border: light ? "1px solid rgba(245,158,11,0.25)" : "1px solid rgba(251,191,36,0.25)",
                                                     background: light ? "rgba(255,251,235,0.9)" : "rgba(245,158,11,0.10)",
+                                                    color: light ? "rgb(120,60,0)" : "rgba(255,255,255,0.85)",
                                                 }
                                                 : b.tone === "ok"
                                                     ? {
                                                         border: light ? "1px solid rgba(16,185,129,0.20)" : "1px solid rgba(52,211,153,0.22)",
                                                         background: light ? "rgba(236,253,245,0.9)" : "rgba(16,185,129,0.10)",
+                                                        color: light ? "rgb(6,78,59)" : "rgba(255,255,255,0.85)",
                                                     }
                                                     : {
                                                         border: light ? "1px solid rgba(15,23,42,0.10)" : "1px solid rgba(255,255,255,0.12)",
@@ -1020,86 +936,51 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
                                     return (
                                         <article
                                             key={s.id}
-                                            className="rounded-3xl border p-4 transition hover:-translate-y-0.5 hover:shadow-xl"
+                                            className="rounded-2xl border transition hover:-translate-y-0.5 hover:shadow-xl"
                                             style={{
-                                                borderColor: light ? "rgba(15,23,42,0.10)" : "rgba(255,255,255,0.10)",
-                                                background: light ? "rgba(255,255,255,0.75)" : "rgba(2,6,23,0.25)",
+                                                borderColor: light ? "rgba(15,23,42,0.08)" : "rgba(255,255,255,0.09)",
+                                                borderLeft: `3px solid ${urgencyBorder}`,
+                                                background: light ? "rgba(255,255,255,0.78)" : "linear-gradient(135deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02))",
+                                                boxShadow: light ? "0 4px 16px rgba(0,0,0,0.06)" : "0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08)",
+                                                backdropFilter: "blur(12px)",
+                                                padding: "0.875rem 1rem",
                                             }}
                                         >
-                                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                                <div>
-                                                    <div className="text-base font-extrabold tracking-tight">{s.name}</div>
-
-                                                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold">
-                                                        <span className="rounded-full px-3 py-1" style={badgeStyle}>
-                                                            {b.text}
-                                                        </span>
-                                                        <span className="opacity-70">•</span>
-                                                        <span className="opacity-80">{s.category || "—"}</span>
-                                                        <span className="opacity-70">•</span>
-                                                        <span className="opacity-80">
-                                                            {s.currency}
-                                                            {Number(s.amount).toFixed(2)} · {s.cycle}
-                                                        </span>
+                                            {/* Top row: avatar + name + amount */}
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <div style={{
+                                                        width: 40, height: 40, borderRadius: 12,
+                                                        background: avatarBg,
+                                                        display: "grid", placeItems: "center",
+                                                        fontSize: 16, fontWeight: 800, color: "white", flexShrink: 0,
+                                                    }}>
+                                                        {s.name[0]?.toUpperCase() || "?"}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <div className="font-extrabold tracking-tight truncate">{s.name}</div>
+                                                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                                            <span className="text-xs opacity-60">{s.category || "—"}</span>
+                                                            <span className="rounded-full px-2 py-0.5 text-xs font-semibold" style={badgeStyle}>{b.text}</span>
+                                                        </div>
                                                     </div>
                                                 </div>
-
-                                                <div className="text-right">
-                                                    <div className="text-sm font-extrabold">
-                                                        {s.currency}
-                                                        {Number(s.amount).toFixed(2)}
-                                                    </div>
-                                                    <div className="mt-1 text-xs opacity-75">
-                                                        ~{monthlyEquivalent(s.amount, s.cycle).toFixed(2)}/mo
-                                                    </div>
+                                                <div className="text-right shrink-0">
+                                                    <div className="font-extrabold text-base">{s.currency}{Number(s.amount).toFixed(2)}</div>
+                                                    <div className="text-xs opacity-60">~{monthlyEquivalent(s.amount, s.cycle).toFixed(2)}/mo</div>
                                                 </div>
                                             </div>
 
-                                            <div
-                                                className="mt-3 flex flex-col gap-3 border-t pt-3 sm:flex-row sm:items-center sm:justify-between"
-                                                style={{ borderColor: light ? "rgba(15,23,42,0.08)" : "rgba(255,255,255,0.08)" }}
-                                            >
-                                                <div className="text-sm opacity-85">
-                                                    Next due: <span className="font-semibold">{s.nextDue}</span>
-                                                    {s.notes ? <span className="opacity-75"> · {s.notes}</span> : null}
+                                            {/* Divider + actions */}
+                                            <div className="flex items-center justify-between gap-2 mt-3 pt-3 flex-wrap"
+                                                style={{ borderTop: `1px solid ${light ? "rgba(15,23,42,0.08)" : "rgba(255,255,255,0.07)"}` }}>
+                                                <div className="text-xs opacity-60 truncate">
+                                                    Due {s.nextDue}{s.notes ? ` · ${s.notes}` : ""}
                                                 </div>
-
-                                                <div className="flex flex-wrap gap-2">
-                                                    <button
-                                                        className="rounded-xl border px-3 py-2 text-xs font-semibold transition hover:-translate-y-0.5 hover:shadow-lg"
-                                                        style={{
-                                                            borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
-                                                            background: light ? "white" : "rgba(255,255,255,0.06)",
-                                                        }}
-                                                        type="button"
-                                                        onClick={() => onMarkPaid(s)}
-                                                    >
-                                                        Mark paid
-                                                    </button>
-
-                                                    <button
-                                                        className="rounded-xl border px-3 py-2 text-xs font-semibold transition hover:-translate-y-0.5 hover:shadow-lg"
-                                                        style={{
-                                                            borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
-                                                            background: light ? "white" : "rgba(255,255,255,0.06)",
-                                                        }}
-                                                        type="button"
-                                                        onClick={() => onEdit(s)}
-                                                    >
-                                                        Edit
-                                                    </button>
-
-                                                    <button
-                                                        className="rounded-xl border px-3 py-2 text-xs font-semibold transition hover:-translate-y-0.5 hover:shadow-lg"
-                                                        style={{
-                                                            borderColor: light ? "rgba(239,68,68,0.18)" : "rgba(248,113,113,0.22)",
-                                                            background: light ? "rgba(254,242,242,0.9)" : "rgba(244,63,94,0.12)",
-                                                        }}
-                                                        type="button"
-                                                        onClick={() => onDelete(s.id)}
-                                                    >
-                                                        Delete
-                                                    </button>
+                                                <div className="flex gap-1.5 shrink-0">
+                                                    <ActionBtn onClick={() => onMarkPaid(s)}>✓ Paid</ActionBtn>
+                                                    <ActionBtn onClick={() => onEdit(s)}>Edit</ActionBtn>
+                                                    <ActionBtn onClick={() => onDelete(s.id)} danger>✕</ActionBtn>
                                                 </div>
                                             </div>
                                         </article>
@@ -1110,10 +991,165 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
                     </div>
                 </section>
 
-                <footer className="mt-8 text-center text-xs opacity-70">
+                <footer className="mt-8 text-center text-xs opacity-50">
                     © {new Date().getFullYear()} Pratik Patel · SubTrack
                 </footer>
             </main>
+
+            {/* FAB */}
+            <button
+                onClick={() => { resetForm(); setShowForm(true); }}
+                type="button"
+                className="fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full text-2xl font-bold text-white transition hover:-translate-y-1"
+                style={{
+                    background: "linear-gradient(135deg, #7c3aed, #22d3ee)",
+                    boxShadow: "0 4px 24px rgba(124,58,237,0.5)",
+                }}
+            >
+                +
+            </button>
+
+            {/* Add/Edit modal */}
+            {showForm ? (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                    style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)" }}
+                    onClick={(e) => { if (e.target === e.currentTarget) resetForm(); }}
+                >
+                    <div
+                        className="w-full max-w-lg rounded-3xl border p-6 shadow-2xl card-in overflow-y-auto"
+                        style={{
+                            ...glassCard,
+                            maxHeight: "90vh",
+                            color: light ? "#0b1220" : "white",
+                        }}
+                    >
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-xl font-extrabold tracking-tight">
+                                {editingId ? "Edit subscription" : "New subscription"}
+                            </h2>
+                            <button
+                                onClick={resetForm}
+                                type="button"
+                                className="rounded-full border px-3 py-1.5 text-sm font-semibold transition hover:opacity-100"
+                                style={{
+                                    borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.15)",
+                                    background: light ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.06)",
+                                    opacity: 0.7,
+                                }}
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <form className="grid gap-3" onSubmit={onSubmit}>
+                            <label className="grid gap-1.5 text-xs font-semibold opacity-70">
+                                Name
+                                <input
+                                    className="w-full rounded-2xl border px-4 py-3 text-sm outline-none transition focus:ring-2"
+                                    style={inputStyle}
+                                    value={form.name}
+                                    onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                                    placeholder="Netflix, Spotify, Gym…"
+                                    required
+                                    autoFocus
+                                />
+                            </label>
+
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <label className="grid gap-1.5 text-xs font-semibold opacity-70">
+                                    Amount
+                                    <input
+                                        className="w-full rounded-2xl border px-4 py-3 text-sm outline-none transition focus:ring-2"
+                                        style={inputStyle}
+                                        value={form.amount}
+                                        onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))}
+                                        placeholder="e.g. 12.99"
+                                        inputMode="decimal"
+                                        required
+                                    />
+                                </label>
+
+                                <label className="grid gap-1.5 text-xs font-semibold opacity-70">
+                                    Currency
+                                    <select
+                                        className="w-full rounded-2xl border px-4 py-3 text-sm outline-none transition focus:ring-2"
+                                        style={inputStyle}
+                                        value={form.currency}
+                                        onChange={(e) => setForm((p) => ({ ...p, currency: e.target.value }))}
+                                    >
+                                        {CURRENCY_OPTIONS.map((c) => (
+                                            <option key={c} value={c}>{c}</option>
+                                        ))}
+                                    </select>
+                                </label>
+                            </div>
+
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <label className="grid gap-1.5 text-xs font-semibold opacity-70">
+                                    Billing cycle
+                                    <select
+                                        className="w-full rounded-2xl border px-4 py-3 text-sm outline-none transition focus:ring-2"
+                                        style={inputStyle}
+                                        value={form.cycle}
+                                        onChange={(e) => setForm((p) => ({ ...p, cycle: e.target.value }))}
+                                    >
+                                        {CYCLE_OPTIONS.map((c) => (
+                                            <option key={c.value} value={c.value}>{c.label}</option>
+                                        ))}
+                                    </select>
+                                </label>
+
+                                <label className="grid gap-1.5 text-xs font-semibold opacity-70">
+                                    Next due date
+                                    <input
+                                        type="date"
+                                        className="w-full rounded-2xl border px-4 py-3 text-sm outline-none transition focus:ring-2"
+                                        style={inputStyle}
+                                        value={form.nextDue}
+                                        onChange={(e) => setForm((p) => ({ ...p, nextDue: e.target.value }))}
+                                        required
+                                    />
+                                </label>
+                            </div>
+
+                            <label className="grid gap-1.5 text-xs font-semibold opacity-70">
+                                Category
+                                <select
+                                    className="w-full rounded-2xl border px-4 py-3 text-sm outline-none transition focus:ring-2"
+                                    style={inputStyle}
+                                    value={form.category}
+                                    onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
+                                >
+                                    {CATEGORY_OPTIONS.map((c) => (
+                                        <option key={c} value={c}>{c}</option>
+                                    ))}
+                                </select>
+                            </label>
+
+                            <label className="grid gap-1.5 text-xs font-semibold opacity-70">
+                                Notes (optional)
+                                <textarea
+                                    className="w-full rounded-2xl border px-4 py-3 text-sm outline-none transition focus:ring-2"
+                                    style={inputStyle}
+                                    value={form.notes}
+                                    onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
+                                    placeholder="Trial ends, cancel link, etc."
+                                    rows={2}
+                                />
+                            </label>
+
+                            <button
+                                className="rounded-2xl px-4 py-3 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:shadow-xl disabled:opacity-60 mt-1"
+                                style={{ background: "linear-gradient(90deg, #7c3aed, #6d28d9)", boxShadow: "0 4px 16px rgba(124,58,237,0.4)" }}
+                                type="submit"
+                            >
+                                {editingId ? "Save changes" : "Add subscription"}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            ) : null}
         </div>
     );
 }

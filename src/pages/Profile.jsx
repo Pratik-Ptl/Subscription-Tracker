@@ -156,24 +156,25 @@ export default function Profile({ session, theme, setTheme }) {
       ) : null}
 
       <header
-        className="sticky top-0 z-40 border-b backdrop-blur"
+        className="sticky top-0 z-40 border-b"
         style={{
-          borderColor: light ? "rgba(15,23,42,0.10)" : "rgba(255,255,255,0.10)",
-          background: light ? "rgba(255,255,255,0.78)" : "rgba(2,6,23,0.45)",
+          borderColor: light ? "rgba(15,23,42,0.08)" : "rgba(255,255,255,0.08)",
+          background: light ? "rgba(255,255,255,0.75)" : "rgba(2,6,23,0.55)",
+          backdropFilter: "blur(20px)",
         }}
       >
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <div className="h-3 w-3 rounded-full bg-gradient-to-br from-violet-500 via-cyan-400 to-emerald-400 shadow-[0_0_0_8px_rgba(124,58,237,0.12)]" />
+            <div className="h-8 w-8 rounded-xl flex-shrink-0" style={{ background: "linear-gradient(135deg, #7c3aed, #22d3ee, #10b981)" }} />
             <div className="leading-tight">
               <div className="text-sm font-extrabold tracking-tight">SubTrack</div>
-              <div className="text-xs opacity-70">Profile</div>
+              <div className="text-xs opacity-60">Profile</div>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <button
-              className="rounded-full border px-3 py-2 text-xs font-semibold transition hover:-translate-y-0.5 hover:shadow-lg"
+              className="rounded-full border px-3 py-1.5 text-xs font-semibold transition hover:-translate-y-0.5"
               style={{
                 borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
                 background: light ? "white" : "rgba(255,255,255,0.06)",
@@ -181,11 +182,11 @@ export default function Profile({ session, theme, setTheme }) {
               onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
               type="button"
             >
-              {theme === "dark" ? "Light mode" : "Dark mode"}
+              {theme === "dark" ? "☀ Light" : "☾ Dark"}
             </button>
 
             <button
-              className="rounded-full border px-3 py-2 text-xs font-semibold transition hover:-translate-y-0.5 hover:shadow-lg"
+              className="rounded-full border px-3 py-1.5 text-xs font-semibold transition hover:-translate-y-0.5"
               style={{
                 borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
                 background: light ? "white" : "rgba(255,255,255,0.06)",
@@ -193,7 +194,7 @@ export default function Profile({ session, theme, setTheme }) {
               onClick={() => nav("/app")}
               type="button"
             >
-              Back to app
+              ← Back
             </button>
           </div>
         </div>
@@ -203,8 +204,10 @@ export default function Profile({ session, theme, setTheme }) {
         <div
           className="mx-auto max-w-2xl rounded-3xl border p-6 shadow-2xl"
           style={{
-            borderColor: light ? "rgba(15,23,42,0.10)" : "rgba(255,255,255,0.10)",
-            background: light ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.06)",
+            borderColor: light ? "rgba(15,23,42,0.10)" : "rgba(255,255,255,0.12)",
+            background: light ? "rgba(255,255,255,0.90)" : "linear-gradient(135deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.03) 100%)",
+            boxShadow: light ? "0 8px 32px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,0.9)" : "0 8px 32px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.12)",
+            backdropFilter: "blur(20px)",
           }}
         >
           <h1 className="text-2xl font-extrabold tracking-tight">Your profile</h1>
@@ -216,11 +219,12 @@ export default function Profile({ session, theme, setTheme }) {
             <form className="mt-6 grid gap-4" onSubmit={onSave}>
               {/* Avatar */}
               <div className="flex items-center gap-4">
-                <div className="h-16 w-16 overflow-hidden rounded-full bg-gradient-to-br from-violet-500 via-cyan-400 to-emerald-400">
+                <div className="h-20 w-20 overflow-hidden rounded-2xl flex-shrink-0"
+                  style={{ background: "linear-gradient(135deg, #7c3aed, #22d3ee, #10b981)", boxShadow: "0 4px 16px rgba(124,58,237,0.35)" }}>
                   {shownAvatar ? (
                     <img src={shownAvatar} alt="Avatar" className="h-full w-full object-cover" />
                   ) : (
-                    <div className="grid h-full w-full place-items-center text-2xl text-white">
+                    <div className="grid h-full w-full place-items-center text-3xl text-white">
                       {genderEmoji(gender)}
                     </div>
                   )}
@@ -303,11 +307,11 @@ export default function Profile({ session, theme, setTheme }) {
               </div>
 
               <button
-                className="rounded-2xl border px-4 py-3 text-sm font-semibold transition hover:-translate-y-0.5 hover:shadow-xl disabled:opacity-60"
+                className="rounded-2xl px-4 py-3 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:shadow-xl disabled:opacity-60"
                 style={{
-                  borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
-                  background:
-                    "linear-gradient(90deg, rgba(124,58,237,0.18), rgba(34,211,238,0.14), rgba(52,211,153,0.12))",
+                  background: "linear-gradient(90deg, #7c3aed, #6d28d9)",
+                  boxShadow: "0 4px 16px rgba(124,58,237,0.4)",
+                  border: "none",
                 }}
                 type="submit"
                 disabled={saving}
