@@ -1,6 +1,6 @@
 // src/App.jsx
 import { useEffect, useState } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 
 // Pages
@@ -9,6 +9,7 @@ import Signup from "./pages/Signup.jsx";
 import Tracker from "./pages/Tracker.jsx";
 import Profile from "./pages/Profile.jsx";
 import Verified from "./pages/Verified.jsx";
+import ResetPassword from "./pages/ResetPassword.jsx";
 
 import "./App.css";
 
@@ -27,6 +28,8 @@ function AuthRoute({ session, children }) {
 }
 
 export default function App() {
+  const nav = useNavigate();
+
   // Theme
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem("subtrack:theme");
@@ -44,6 +47,7 @@ export default function App() {
 
   // Session
   const [session, setSession] = useState(null);
+  const [isRecovery, setIsRecovery] = useState(false);
 
   // Guest mode (sessionStorage only)
   const [isGuest, setIsGuest] = useState(() => {
@@ -68,8 +72,14 @@ export default function App() {
       setSession(data.session || null);
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, newSession) => {
       setSession(newSession || null);
+
+      // Detect password recovery flow
+      if (event === "PASSWORD_RECOVERY") {
+        setIsRecovery(true);
+        return;
+      }
 
       // If the user is truly logged in, exit guest mode automatically
       if (newSession) {
@@ -83,6 +93,13 @@ export default function App() {
       sub?.subscription?.unsubscribe?.();
     };
   }, []);
+
+  // Redirect to reset-password page when recovery event is detected
+  useEffect(() => {
+    if (isRecovery) {
+      nav("/reset-password", { replace: true });
+    }
+  }, [isRecovery, nav]);
 
   return (
     <Routes>
@@ -129,6 +146,12 @@ export default function App() {
       />
 
       <Route path="/verified" element={<Verified theme={theme} setTheme={setTheme} />} />
+
+      <Route path="/reset-password" element={
+        isRecovery || session
+          ? <ResetPassword theme={theme} setTheme={setTheme} />
+          : <Navigate to="/login" replace />
+      } />
 
       {/* fallback */}
       <Route path="*" element={<Navigate to="/login" replace />} />

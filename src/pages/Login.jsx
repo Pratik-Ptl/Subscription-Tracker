@@ -96,7 +96,7 @@ export default function Login({ theme, setTheme, enterGuest }) {
     const target = forgotEmail.trim();
     if (!target || forgotCooldown > 0) return;
     setForgotLoading(true);
-    const redirectTo = `${window.location.origin}/login`;
+    const redirectTo = `${window.location.origin}/reset-password`;
     const { error } = await supabase.auth.resetPasswordForEmail(target, { redirectTo });
     setForgotLoading(false);
     if (error) { popToast("Failed to send reset email"); return; }
