@@ -81,6 +81,12 @@ export default function App() {
         return;
       }
 
+      // Clear recovery mode on sign out so user can navigate to login
+      if (event === "SIGNED_OUT") {
+        setIsRecovery(false);
+        return;
+      }
+
       // If the user is truly logged in, exit guest mode automatically
       if (newSession) {
         sessionStorage.removeItem(GUEST_MODE_KEY);
