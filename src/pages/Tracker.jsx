@@ -614,7 +614,7 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
 
                     <div className="flex items-center gap-2">
                         <button
-                            className="rounded-full border px-3 py-1.5 text-xs font-semibold transition hover:opacity-80"
+                            className="rounded-full border px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
                             style={{
                                 borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
                                 background: light ? "white" : "rgba(255,255,255,0.06)",
@@ -626,7 +626,7 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
                         </button>
 
                         <button
-                            className="hidden sm:block rounded-full border px-3 py-1.5 text-xs font-semibold transition hover:opacity-80"
+                            className="hidden sm:block rounded-full border px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
                             style={{
                                 borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
                                 background: light ? "white" : "rgba(255,255,255,0.06)",
@@ -642,7 +642,7 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
                             <button
                                 type="button"
                                 onClick={() => setMenuOpen((s) => !s)}
-                                className="flex items-center gap-2 rounded-full border px-2.5 py-1.5 text-xs font-semibold transition hover:opacity-80"
+                                className="flex items-center gap-2 rounded-full border px-2.5 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
                                 style={{
                                     borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
                                     background: light ? "white" : "rgba(255,255,255,0.06)",
@@ -679,7 +679,7 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
 
                                             <div className="mt-3 grid gap-2">
                                                 <button
-                                                    className="rounded-xl border px-3 py-2 text-sm font-semibold transition hover:-translate-y-0.5"
+                                                    className="rounded-xl border px-3 py-2 text-sm font-semibold transition-opacity hover:opacity-80"
                                                     style={{
                                                         borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
                                                         background: light ? "white" : "rgba(255,255,255,0.06)",
@@ -691,7 +691,7 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
                                                 </button>
 
                                                 <button
-                                                    className="rounded-xl border px-3 py-2 text-sm font-semibold transition hover:-translate-y-0.5"
+                                                    className="rounded-xl border px-3 py-2 text-sm font-semibold transition-opacity hover:opacity-80"
                                                     style={{
                                                         borderColor: "rgba(124,58,237,0.3)",
                                                         background: "linear-gradient(90deg, rgba(124,58,237,0.18), rgba(34,211,238,0.14), rgba(52,211,153,0.12))",
@@ -726,7 +726,7 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
 
                                             <div className="mt-3 grid gap-2">
                                                 <button
-                                                    className="rounded-xl border px-3 py-2 text-sm font-semibold transition hover:-translate-y-0.5"
+                                                    className="rounded-xl border px-3 py-2 text-sm font-semibold transition-opacity hover:opacity-80"
                                                     style={{
                                                         borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
                                                         background: light ? "white" : "rgba(255,255,255,0.06)",
@@ -741,7 +741,7 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
                                                 </button>
 
                                                 <button
-                                                    className="rounded-xl border px-3 py-2 text-sm font-semibold transition hover:-translate-y-0.5"
+                                                    className="rounded-xl border px-3 py-2 text-sm font-semibold transition-opacity hover:opacity-80"
                                                     style={{
                                                         borderColor: light ? "rgba(239,68,68,0.18)" : "rgba(248,113,113,0.22)",
                                                         background: light ? "rgba(254,242,242,0.9)" : "rgba(244,63,94,0.12)",
