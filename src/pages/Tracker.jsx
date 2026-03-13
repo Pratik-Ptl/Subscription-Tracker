@@ -599,6 +599,8 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
                     borderColor: light ? "rgba(15,23,42,0.08)" : "rgba(255,255,255,0.08)",
                     background: light ? "rgba(255,255,255,0.75)" : "rgba(2,6,23,0.55)",
                     backdropFilter: "blur(20px)",
+                    WebkitBackdropFilter: "blur(20px)",
+                    willChange: "transform",
                 }}
             >
                 <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
