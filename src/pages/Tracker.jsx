@@ -614,7 +614,7 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
 
                     <div className="flex items-center gap-2">
                         <button
-                            className="rounded-full border px-3 py-1.5 text-xs font-semibold transition hover:-translate-y-0.5"
+                            className="rounded-full border px-3 py-1.5 text-xs font-semibold transition hover:opacity-80"
                             style={{
                                 borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
                                 background: light ? "white" : "rgba(255,255,255,0.06)",
@@ -626,7 +626,7 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
                         </button>
 
                         <button
-                            className="hidden sm:block rounded-full border px-3 py-1.5 text-xs font-semibold transition hover:-translate-y-0.5"
+                            className="hidden sm:block rounded-full border px-3 py-1.5 text-xs font-semibold transition hover:opacity-80"
                             style={{
                                 borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
                                 background: light ? "white" : "rgba(255,255,255,0.06)",
@@ -642,7 +642,7 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
                             <button
                                 type="button"
                                 onClick={() => setMenuOpen((s) => !s)}
-                                className="flex items-center gap-2 rounded-full border px-2.5 py-1.5 text-xs font-semibold transition hover:-translate-y-0.5"
+                                className="flex items-center gap-2 rounded-full border px-2.5 py-1.5 text-xs font-semibold transition hover:opacity-80"
                                 style={{
                                     borderColor: light ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.12)",
                                     background: light ? "white" : "rgba(255,255,255,0.06)",
