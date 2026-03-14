@@ -523,9 +523,10 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
 
     const glassCard = {
         borderColor: light ? "rgba(15,23,42,0.10)" : "rgba(255,255,255,0.12)",
-        background: light ? "rgba(255,255,255,0.90)" : "linear-gradient(135deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.03) 100%)",
+        background: light ? "rgba(255,255,255,0.90)" : "linear-gradient(135deg, rgba(30,30,40,0.82) 0%, rgba(20,20,30,0.78) 100%)",
         boxShadow: light ? "0 8px 32px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,0.9)" : "0 8px 32px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.12)",
-        backdropFilter: "blur(20px)",
+        backdropFilter: light ? "blur(20px)" : "blur(12px)",
+        WebkitBackdropFilter: light ? "blur(20px)" : "blur(12px)",
     };
 
     const inputStyle = {
@@ -539,9 +540,10 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
         return (
             <div className="rounded-3xl border p-4 shadow-xl card-in" style={{
                 borderColor: light ? "rgba(15,23,42,0.10)" : "rgba(255,255,255,0.12)",
-                background: light ? "rgba(255,255,255,0.82)" : "linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03))",
+                background: light ? "rgba(255,255,255,0.82)" : "linear-gradient(135deg, rgba(30,30,40,0.80), rgba(20,20,30,0.76))",
                 boxShadow: light ? "0 8px 32px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,0.9)" : `0 8px 32px rgba(0,0,0,0.28), 0 0 40px -15px ${glow}, inset 0 1px 0 rgba(255,255,255,0.12)`,
-                backdropFilter: "blur(20px)",
+                backdropFilter: light ? "blur(20px)" : "none",
+                WebkitBackdropFilter: light ? "blur(20px)" : "none",
             }}>
                 <div className="flex items-center justify-between">
                     <div className="text-xs font-semibold opacity-60">{label}</div>
@@ -597,10 +599,10 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
                 className="sticky top-0 z-40 border-b"
                 style={{
                     borderColor: light ? "rgba(15,23,42,0.08)" : "rgba(255,255,255,0.08)",
-                    background: light ? "rgba(255,255,255,0.75)" : "rgba(2,6,23,0.55)",
+                    background: light ? "rgba(255,255,255,0.75)" : "rgba(15,15,25,0.80)",
                     backdropFilter: "blur(20px)",
                     WebkitBackdropFilter: "blur(20px)",
-                    willChange: "transform",
+                    isolation: "isolate",
                 }}
             >
                 <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
@@ -763,7 +765,7 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
                 </div>
             </header>
 
-            <main className="mx-auto max-w-6xl px-4 py-8">
+            <main className="mx-auto max-w-6xl px-4 py-8" style={{ isolation: "isolate" }}>
                 {/* Guest banner */}
                 {isGuest ? (
                     <div
@@ -942,9 +944,10 @@ export default function Tracker({ session, theme, setTheme, isGuest, exitGuest }
                                             style={{
                                                 borderColor: light ? "rgba(15,23,42,0.08)" : "rgba(255,255,255,0.09)",
                                                 borderLeft: `3px solid ${urgencyBorder}`,
-                                                background: light ? "rgba(255,255,255,0.78)" : "linear-gradient(135deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02))",
+                                                background: light ? "rgba(255,255,255,0.78)" : "linear-gradient(135deg, rgba(30,30,40,0.75), rgba(20,20,30,0.70))",
                                                 boxShadow: light ? "0 4px 16px rgba(0,0,0,0.06)" : "0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08)",
-                                                backdropFilter: "blur(12px)",
+                                                backdropFilter: light ? "blur(12px)" : "none",
+                                                WebkitBackdropFilter: light ? "blur(12px)" : "none",
                                                 padding: "0.875rem 1rem",
                                             }}
                                         >
