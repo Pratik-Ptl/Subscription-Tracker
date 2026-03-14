@@ -175,6 +175,7 @@ export default function Login({ theme, setTheme, enterGuest }) {
 
           {/* Decorative mini-cards */}
           <div className="relative flex flex-col gap-3">
+            <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: light ? "rgba(59,7,100,0.45)" : "rgba(255,255,255,0.35)" }}>Example</div>
             {[
               { name: "Streaming", price: "$15.99/mo", due: "in 3 days", color: "#7c3aed" },
               { name: "Cloud Storage", price: "$2.99/mo", due: "in 8 days", color: "#22d3ee" },
