@@ -198,7 +198,7 @@ export default function Login({ theme, setTheme, enterGuest }) {
         {/* Right — form */}
         <div className="flex flex-col justify-center px-6 py-10 sm:px-12">
           <div className="mx-auto w-full max-w-sm">
-            <h1 className="text-2xl font-extrabold tracking-tight">Welcome back</h1>
+            <h1 className="text-2xl font-extrabold tracking-tight">Welcome</h1>
             <p className="mt-1.5 text-sm" style={{ opacity: 0.6 }}>Sign in to your account</p>
 
             {fromGuest && (
